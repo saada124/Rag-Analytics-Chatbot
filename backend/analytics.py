@@ -91,7 +91,7 @@ Rules for writing the code:
 5. For date operations:
    - Convert date columns using `pd.to_datetime(df[col], errors='coerce')` before comparing them.
    - For relative dates, today's date is {today_str}.
-6. Limit the output size: if returning multiple rows, use `.head(20)` or similar limit to avoid flooding the system.
+6. Output size: If the user asks for a count, total, or a full list (e.g., "how many", "list all", "show all"), return ALL matching rows — do NOT add `.head()`. Only use `.head(50)` if the user is browsing or exploring without specifying they want the full result.
 7. Keep it safe: do not use external library imports, system calls, or built-in file writing/reading functions. Only use pandas and numpy.
 8. If the user asks for specific columns (e.g., "show me the user's country... and the score"), select only those columns in the final result (e.g. `result = df[['country', 'score']]`).
 9. Do not include markdown code block syntax (like ```python) in your response property for `code`. Provide raw Python code lines.
@@ -131,7 +131,7 @@ Your task is to fix the bug in the code and return the corrected version. Follow
 5. For date operations:
    - Convert date columns using `pd.to_datetime(df[col], errors='coerce')` before comparing them.
    - For relative dates, today's date is {today_str}.
-6. Limit the output size: if returning multiple rows, use `.head(20)` or similar limit to avoid flooding the system.
+6. Output size: If the user asks for a count, total, or a full list, return ALL matching rows. Only use `.head(50)` if the user is browsing or exploring without specifying they want the full result.
 7. Keep it safe: do not use external library imports, system calls, or built-in file writing/reading functions. Only use pandas and numpy.
 8. If the user asks for specific columns, select only those columns in the final result.
 9. Do not include markdown code block syntax (like ```python) in your response property for `code`. Provide raw Python code lines.

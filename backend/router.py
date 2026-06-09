@@ -1,4 +1,5 @@
 from typing import Literal
+from concurrent.futures import ThreadPoolExecutor
 from pydantic import BaseModel, Field
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
@@ -70,9 +71,15 @@ def handle_rag(query: str) -> dict:
     }
 
 def handle_hybrid(query: str) -> dict:
-    analytics_result = analyze_query(query)
     history = memory.get_history()
-    retrieval_result = retrieve_context(query, history=history)
+
+    # Run analytics and RAG retrieval in parallel
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        future_analytics = executor.submit(analyze_query, query)
+        future_rag = executor.submit(retrieve_context, query, history)
+
+        analytics_result = future_analytics.result()
+        retrieval_result = future_rag.result()
 
     analytics_context = analytics_result.get("answer", "")
     rag_context = retrieval_result.get("context", "")
