@@ -85,8 +85,8 @@ def handle_rag(query: str) -> dict:
 
 def handle_hybrid(query: str) -> dict:
     analytics_result = analyze_query(query)
-    retrieval_result = retrieve_context(query)
     history = memory.get_history()
+    retrieval_result = retrieve_context(query, history=history)
 
     analytics_context = analytics_result.get("answer", "")
     rag_context = retrieval_result.get("context", "")
