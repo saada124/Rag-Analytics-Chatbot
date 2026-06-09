@@ -2,6 +2,7 @@ import streamlit as st
 import requests
 import json
 import os
+import pandas as pd
 
 # Set page configuration
 st.set_page_config(
@@ -14,51 +15,137 @@ st.set_page_config(
 # Custom CSS for a premium look
 st.markdown("""
 <style>
-    /* Main background */
+    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
+
+    /* Global settings */
+    html, body, [class*="css"] {
+        font-family: 'Outfit', sans-serif;
+    }
+
+    /* Main background with subtle gradient */
     .stApp {
-        background-color: #f7f9fc;
+        background: linear-gradient(135deg, #f0f4fd 0%, #e1e9fb 100%);
     }
     
-    /* Header styling */
+    /* Header styling with gradient text */
     h1 {
-        color: #1E3A8A;
-        font-family: 'Inter', sans-serif;
-        font-weight: 700;
+        background: linear-gradient(90deg, #1E3A8A 0%, #3B82F6 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        font-weight: 700 !important;
         letter-spacing: -0.5px;
+        margin-bottom: 0.5rem;
     }
     
-    /* Chat message styling */
-    .stChatMessage {
-        background-color: #ffffff;
-        border-radius: 12px;
-        padding: 10px 15px;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
-        margin-bottom: 15px;
-        border: 1px solid #e5e7eb;
-    }
-    
-    /* Sidebar styling */
+    /* Sleek light Glassmorphism for sidebar */
     [data-testid="stSidebar"] {
-        background-color: #1e293b;
-        color: #f8fafc;
+        background: rgba(255, 255, 255, 0.4) !important;
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border-right: 1px solid rgba(255, 255, 255, 0.6);
     }
-    [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 {
-        color: #f8fafc;
+    
+    /* Make sure sidebar titles/text look good on the light background */
+    [data-testid="stSidebar"] h1, 
+    [data-testid="stSidebar"] h2, 
+    [data-testid="stSidebar"] h3,
+    [data-testid="stSidebar"] p {
+        color: #1e293b;
+    }
+
+    [data-testid="stSidebar"] hr {
+        border-color: rgba(30, 41, 59, 0.1);
+    }
+    
+    /* Chat message container animations & styling */
+    .stChatMessage {
+        background-color: rgba(255, 255, 255, 0.85);
+        backdrop-filter: blur(10px);
+        border-radius: 16px;
+        padding: 16px 20px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.03);
+        margin-bottom: 20px;
+        border: 1px solid rgba(255, 255, 255, 0.8);
+        animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    
+    /* Distinct styling for assistant vs user messages */
+    .stChatMessage[data-testid="chat-message-user"] {
+        background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+        border-right: 4px solid #3B82F6;
+    }
+    
+    .stChatMessage[data-testid="chat-message-assistant"] {
+        background: linear-gradient(135deg, #ffffff 0%, #fdfdff 100%);
+        border-left: 4px solid #10b981;
+    }
+
+    @keyframes fadeIn {
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
     }
     
     /* Metric styling */
     [data-testid="stMetricValue"] {
-        color: #10b981;
+        color: #34d399 !important;
+        font-weight: 700;
+        text-shadow: 0 0 20px rgba(52, 211, 153, 0.4);
+    }
+    [data-testid="stMetricLabel"] {
+        color: #94a3b8 !important;
     }
     
     /* Button styling */
     .stButton>button {
-        border-radius: 8px;
+        background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%);
+        color: white !important;
+        border: none;
+        border-radius: 10px;
+        font-weight: 500;
+        padding: 0.5rem 1rem;
         transition: all 0.3s ease;
+        box-shadow: 0 4px 14px 0 rgba(59, 130, 246, 0.39);
     }
     .stButton>button:hover {
         transform: translateY(-2px);
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        box-shadow: 0 6px 20px rgba(59, 130, 246, 0.23);
+        background: linear-gradient(135deg, #60A5FA 0%, #3B82F6 100%);
+    }
+    
+    /* Input box styling */
+    .stChatInputContainer {
+        border-radius: 16px;
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.8);
+        background: rgba(255, 255, 255, 0.8);
+        backdrop-filter: blur(10px);
+    }
+
+    /* Expanders */
+    .streamlit-expanderHeader {
+        background-color: transparent;
+        color: #475569;
+        font-weight: 500;
+    }
+    
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+        background: #94a3b8;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -129,7 +216,7 @@ for message in st.session_state.messages:
         # Display data payload if analytics
         if message.get("data") and len(message["data"]) > 0:
             with st.expander("View Data Records"):
-                st.dataframe(message["data"], use_container_width=True)
+                st.dataframe(pd.DataFrame(message["data"]).astype(str), use_container_width=True)
 
 # Chat Input
 if prompt := st.chat_input("What would you like to know?"):
@@ -171,7 +258,7 @@ if prompt := st.chat_input("What would you like to know?"):
                                 
                     if analytics_data and len(analytics_data) > 0:
                         with st.expander("View Data Records"):
-                            st.dataframe(analytics_data, use_container_width=True)
+                            st.dataframe(pd.DataFrame(analytics_data).astype(str), use_container_width=True)
                             
                     # Add to session state
                     st.session_state.messages.append({
