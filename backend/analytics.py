@@ -96,6 +96,7 @@ Rules for writing the code:
 8. If the user asks for specific columns (e.g., "show me the user's country... and the score"), select only those columns in the final result (e.g. `result = df[['country', 'score']]`).
 9. Do not include markdown code block syntax (like ```python) in your response property for `code`. Provide raw Python code lines.
 10. Your generated explanation (the `explanation` property) must ALWAYS be written in French.
+11. When filtering for exact states or categories (like status="active"), use exact equality (`==`) rather than exclusionary logic (like `!= 'inactive'`) unless the user explicitly asks to exclude something.
 """),
         ("user", "{query}")
     ])
@@ -136,6 +137,7 @@ Your task is to fix the bug in the code and return the corrected version. Follow
 8. If the user asks for specific columns, select only those columns in the final result.
 9. Do not include markdown code block syntax (like ```python) in your response property for `code`. Provide raw Python code lines.
 10. Your generated explanation (the `explanation` property) must ALWAYS be written in French.
+11. When filtering for exact states or categories (like status="active"), use exact equality (`==`) rather than exclusionary logic (like `!= 'inactive'`) unless the user explicitly asks to exclude something.
 """),
         ("user", "Please fix the code above to resolve the execution error.")
     ])
