@@ -11,25 +11,13 @@ from langchain_core.prompts import ChatPromptTemplate
 from config import STRUCTURED_DIR
 from models import llm_client
 
-# ==========================================================
-# PYDANTIC SCHEMAS FOR STRUCTURED OUTPUT
-# ==========================================================
-
 class PandasCodeOutput(BaseModel):
     explanation: str = Field(description="A brief description of what the analysis does and its logic. MUST be written in French.")
     code: str = Field(description="Pure Python/Pandas code. You must load the dataframe from dfs, e.g., df = dfs['chroma_dataset'], perform operations, and assign the final output to a variable named `result`. Do not wrap this in markdown fence blocks.")
     target_dataframe: str = Field(description="The name of the dataframe being queried.")
 
-# ==========================================================
-# DATAFRAME CACHE
-# ==========================================================
-
 DATAFRAMES = {}
 CACHE_DIR = Path("cache") / "dataframes"
-
-# ==========================================================
-# LOAD DATAFRAMES
-# ==========================================================
 
 def load_dataframes():
     global DATAFRAMES
@@ -42,15 +30,13 @@ def load_dataframes():
         try:
             df = pd.read_pickle(file_path)
             
-            # Normalize column names to lowercase with underscores
+            #column names to lowercase with underscores
             df.columns = df.columns.str.strip().str.lower().str.replace(" ", "_")
-            
-            # Normalize string columns to lowercase/stripped but keep original case for data operations
-            # (Note: we strip whitespace to avoid match errors)
+
             for col in df.select_dtypes(include="object").columns:
                 df[col] = df[col].astype(str).str.strip()
                 
-            # Try parsing date columns
+            #parsing date columns
             for col in df.columns:
                 if any(kw in col for kw in ["date", "time", "period", "month", "year"]):
                     df[col] = pd.to_datetime(df[col], errors="coerce")
@@ -82,10 +68,7 @@ def get_schema_description() -> str:
         lines.append('')
     return "\n".join(lines)
 
-# ==========================================================
-# LANGCHAIN CODE GENERATOR
-# ==========================================================
-
+#langchain
 def generate_pandas_query(query: str) -> PandasCodeOutput:
     today_str = date.today().isoformat()
     schema_desc = get_schema_description()
@@ -102,8 +85,8 @@ YOU MUST ONLY USE THE DATAFRAME KEYS AND COLUMNS LISTED BELOW. DO NOT INVENT COL
 Your task is to write Pandas Python code to answer the user's analytical query.
 Rules for writing the code:
 1. Extract the correct dataframe from the `dfs` dictionary using the exact DATAFRAME KEY shown above (e.g., if the key is "my_data", use `df = dfs["my_data"]`).
-2. YOU MUST use the provided column sample values to infer how to search. If a string column uses a specific delimiter (like '|' or ','), use `.str.contains(..., case=False, na=False)` to search inside it.
-3. Search across all relevant text columns if the user asks for concepts that might span multiple fields.
+2. Use the provided column sample values to infer formatting (like delimiters). However, DO NOT assume the samples contain all possible values or keywords.
+3. When searching for features, concepts, or keywords (e.g., "embeddings", "enterprise"), you MUST smartly search across ALL text/string columns that could logically contain that information (e.g., descriptions, tags, reviews, product names). Combine conditions using `|` (OR), for example: `(df['tags'].str.contains('keyword', case=False, na=False)) | (df['description'].str.contains('keyword', case=False, na=False))`.
 4. You MUST store the final result of your computation/retrieval in the variable `result`.
 5. For date operations:
    - Convert date columns using `pd.to_datetime(df[col], errors='coerce')` before comparing them.
@@ -142,7 +125,7 @@ Execution Error:
 
 Your task is to fix the bug in the code and return the corrected version. Follow the same rules:
 1. Always start by loading the correct dataframe from `dfs` dictionary, e.g., `df = dfs['chroma_dataset']`.
-2. Perform all necessary filtering, projections, groupings, aggregations, or sorting.
+2. Perform all necessary filtering, projections, groupings, aggregations, or sorting. When filtering for keywords, smartly search across ALL relevant text/string columns using `|` (OR) conditions.
 3. You MUST store the final result of your computation/retrieval in the variable `result`.
 4. Ensure string matching handles cases/spaces cleanly (e.g., use `.str.lower()` and `.str.strip()` to make comparisons case-insensitive).
 5. For date operations:
@@ -161,12 +144,8 @@ Your task is to fix the bug in the code and return the corrected version. Follow
     chain = prompt | structured_llm
     return chain.invoke({})
 
-# ==========================================================
-# SAFE CODE EXECUTOR
-# ==========================================================
-
 def execute_pandas_code(code: str, dfs: dict) -> Any:
-    # Security filter to prevent arbitrary command execution or imports
+    #security filter
     dangerous = ["import os", "import sys", "subprocess", "eval(", "exec(", "open(", "write(", "builtins", "__import__", "shutil"]
     for word in dangerous:
         if word in code:
@@ -178,16 +157,10 @@ def execute_pandas_code(code: str, dfs: dict) -> Any:
         "np": np,
         "result": None
     }
-    
-    # Execute python code
     exec(code, {}, local_vars)
-    
     return local_vars.get("result")
 
-# ==========================================================
 # RESULT FORMATTER
-# ==========================================================
-
 def format_result(result: Any) -> dict:
     def convert_numpy(obj: Any) -> Any:
         if isinstance(obj, dict):
@@ -229,17 +202,12 @@ def format_result(result: Any) -> dict:
             "data": result
         }
     else:
-        # Scalar result
         ret = {
             "answer": f"Result: {result}",
             "data": [{"value": result}]
         }
     
     return convert_numpy(ret)
-
-# ==========================================================
-# MAIN ANALYTICS
-# ==========================================================
 
 def analyze_query(query: str) -> dict:
     if not DATAFRAMES:
@@ -266,7 +234,6 @@ def analyze_query(query: str) -> dict:
             print(f"[ANALYTICS] Explanation: {explanation}")
             print(f"[ANALYTICS] Code generated:\n{code}")
 
-            # Execute code
             result = execute_pandas_code(code, DATAFRAMES)
             
             # Format result
@@ -284,7 +251,6 @@ def analyze_query(query: str) -> dict:
 
 
 if __name__ == "__main__":
-    # Test suite
     import os
     print("Testing Analytics Code Generator...")
     load_dataframes()
