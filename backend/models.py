@@ -16,10 +16,6 @@ from config import (
     MEMORY_SIZE
 )
 
-# ==========================================================
-# DEVICE
-# ==========================================================
-
 DEVICE = (
     "cuda"
     if torch.cuda.is_available()
@@ -27,10 +23,6 @@ DEVICE = (
 )
 
 print(f"[INFO] Running on {DEVICE}")
-
-# ==========================================================
-# LANGCHAIN CHAT LLM (OpenRouter / OpenAI wrapper)
-# ==========================================================
 
 if not OPENROUTER_API_KEY:
     raise ValueError("OPENROUTER_API_KEY not found.")
@@ -41,10 +33,6 @@ llm_client = ChatOpenAI(
     model=MODEL_NAME,
     temperature=0
 )
-
-# ==========================================================
-# CUSTOM EMBEDDINGS (Handles E5 prefixes natively)
-# ==========================================================
 
 class E5Embeddings(HuggingFaceEmbeddings):
     def embed_documents(self, texts: List[str]) -> List[List[float]]:
@@ -64,10 +52,6 @@ embedding_function = E5Embeddings(
 )
 
 print("[INFO] Embeddings ready.")
-
-# ==========================================================
-# CUSTOM DOCUMENT COMPRESSOR (CrossEncoder Reranker)
-# ==========================================================
 
 class CrossEncoderReranker(BaseDocumentCompressor):
     model_name: str
@@ -101,10 +85,7 @@ print(f"[INFO] Loading reranker: {RERANKER_MODEL_NAME}")
 reranker_compressor = CrossEncoderReranker(model_name=RERANKER_MODEL_NAME, device=DEVICE)
 print("[INFO] Reranker ready.")
 
-# ==========================================================
-# CONVERSATION MEMORY
-# ==========================================================
-
+#conversation memory
 class ConversationMemory:
     def __init__(self, size=10):
         self.messages = deque(maxlen=size)
@@ -130,16 +111,9 @@ class ConversationMemory:
 
 memory = ConversationMemory(MEMORY_SIZE)
 
-# ==========================================================
-# SEMANTIC CACHE
-# ==========================================================
-
+#semantic cache
 class SemanticCache:
-    """
-    In-memory semantic cache using cosine similarity.
-    If a new query is >= threshold similar to a previously cached query,
-    the cached response is returned instantly (skipping the entire LLM pipeline).
-    """
+
     def __init__(self, embedding_func, threshold=0.98):
         self.embeddings = []      # List of numpy vectors
         self.responses = []       # List of response dicts

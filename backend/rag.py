@@ -16,11 +16,7 @@ from models import (
     memory
 )
 
-# ==========================================================
-# RETRIEVERS
-# ==========================================================
 
-# Configure custom top_n on our reranker compressor
 reranker_compressor.top_n = RERANKER_TOP_K
 
 # Get base retriever from LangChain Chroma
@@ -29,15 +25,10 @@ base_retriever = vectorstore.as_retriever(
     search_kwargs={"k": VECTOR_SEARCH_TOP_K}
 )
 
-# Build contextual compression retriever with LangChain
 compression_retriever = ContextualCompressionRetriever(
     base_compressor=reranker_compressor,
     base_retriever=base_retriever
 )
-
-# ==========================================================
-# LCEL CHAINS
-# ==========================================================
 
 # History-Aware Query Condensation Chain
 # Resolves pronouns and ambiguous references from conversation history
@@ -72,10 +63,6 @@ You are a sales company assistant. You must follow these rules strictly:
 ])
 qa_chain = qa_prompt | llm_client | StrOutputParser()
 
-# ==========================================================
-# MAIN INTERFACES
-# ==========================================================
-
 def retrieve_documents(query: str) -> List:
     return compression_retriever.invoke(query)
 
@@ -88,10 +75,8 @@ def retrieve_context(query: str, history: str = ""):
 
     print(f"[RAG] Condensed query: {condensed_query}")
 
-    # Retrieve and rerank docs using the condensed query
     reranked_docs = retrieve_documents(condensed_query)
 
-    # Format context with source metadata appended to each chunk
     context_parts = []
     for doc in reranked_docs:
         source = doc.metadata.get("source", "unknown")

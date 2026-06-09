@@ -160,7 +160,7 @@ def execute_pandas_code(code: str, dfs: dict) -> Any:
     exec(code, {}, local_vars)
     return local_vars.get("result")
 
-# RESULT FORMATTER
+#result formatter
 def format_result(result: Any) -> dict:
     def convert_numpy(obj: Any) -> Any:
         if isinstance(obj, dict):

@@ -220,10 +220,6 @@ def load_csv(file_path):
         file_path
     )
 
-# ==========================================================
-# XLSX
-# ==========================================================
-
 def load_excel(file_path):
 
     return pd.read_excel(

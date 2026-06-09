@@ -15,19 +15,11 @@ from models import (
     semantic_cache
 )
 
-# ==========================================================
-# PYDANTIC ROUTER MODEL
-# ==========================================================
-
 class RouterClassification(BaseModel):
     route: Literal["RAG", "ANALYTICS", "HYBRID"] = Field(
         ...,
         description="The target route. RAG is for policy/documentation questions; ANALYTICS is for calculations, counts, sums, averages, lists of products/customers; HYBRID is for questions asking for both text descriptions/policies AND data stats."
     )
-
-# ==========================================================
-# QUERY CLASSIFIER CHAIN
-# ==========================================================
 
 router_prompt = ChatPromptTemplate.from_messages([
     ("system", """You are a query classifier for a business intelligence chatbot.
@@ -48,20 +40,13 @@ def classify_query(query: str) -> str:
         print(f"[ROUTER ERROR] {e}")
         return "RAG"
 
-# ==========================================================
-# HYBRID RESPONSE CHAIN
-# ==========================================================
-
+#hybrid response
 hybrid_prompt = ChatPromptTemplate.from_messages([
     ("system", "You are a sales company assistant. Answer the user question by combining BOTH sources (Analytics and Documents). Your response must ALWAYS be in French."),
     ("user", "Analytics Data:\n{analytics_context}\n\nDocuments Context:\n{rag_context}\n\nConversation History:\n{history}\n\nQuestion:\n{question}")
 ])
 
 hybrid_chain = hybrid_prompt | llm_client | StrOutputParser()
-
-# ==========================================================
-# ROUTE HANDLERS
-# ==========================================================
 
 def handle_analytics(query: str) -> dict:
     result = analyze_query(query)
@@ -92,7 +77,6 @@ def handle_hybrid(query: str) -> dict:
     analytics_context = analytics_result.get("answer", "")
     rag_context = retrieval_result.get("context", "")
 
-    # Invoke LCEL hybrid answer generation
     answer = hybrid_chain.invoke({
         "question": query,
         "analytics_context": analytics_context,
@@ -114,12 +98,8 @@ def handle_hybrid(query: str) -> dict:
         ]
     }
 
-# ==========================================================
-# MAIN ROUTER
-# ==========================================================
-
 def route_query(query: str) -> dict:
-    # Check semantic cache first — instant response for repeat queries
+    #check semantic cache first
     cached = semantic_cache.get_cached_response(query)
     if cached is not None:
         return cached
@@ -134,6 +114,6 @@ def route_query(query: str) -> dict:
     else:
         response = handle_rag(query)
 
-    # Store in semantic cache for future hits
+    #store in semantic cache
     semantic_cache.add_to_cache(query, response)
     return response

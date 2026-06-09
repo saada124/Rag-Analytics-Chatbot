@@ -24,10 +24,6 @@ from models import (
 
 from analytics import load_dataframes
 
-# ==========================================================
-# LIFESPAN CONTEXT MANAGER
-# ==========================================================
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print("[STARTUP] Pre-loading and normalizing DataFrames...")
@@ -35,27 +31,15 @@ async def lifespan(app: FastAPI):
     yield
     print("[SHUTDOWN] Stopping application...")
 
-# ==========================================================
-# FASTAPI
-# ==========================================================
-
 app = FastAPI(
     title=APP_NAME,
     version=APP_VERSION,
     lifespan=lifespan
 )
 
-# ==========================================================
-# REQUEST MODELS
-# ==========================================================
-
 class ChatRequest(BaseModel):
     message: str
 
-
-# ==========================================================
-# HEALTH
-# ==========================================================
 
 @app.get("/health")
 def health():
@@ -65,34 +49,20 @@ def health():
     }
 
 
-# ==========================================================
-# INGEST
-# ==========================================================
-
 @app.post("/ingest")
 def ingest():
     ingest_all()
-    # Refresh dataframes after ingestion
+    #refresh dataframes after ingestion
     load_dataframes()
     return {
         "status": "success",
         "vector_documents": get_collection_count()
     }
 
-
-# ==========================================================
-# CHAT
-# ==========================================================
-
 @app.post("/chat")
 def chat(request: ChatRequest):
     result = route_query(request.message)
     return result
-
-
-# ==========================================================
-# MEMORY
-# ==========================================================
 
 @app.post("/clear-memory")
 def clear_memory():
@@ -100,11 +70,6 @@ def clear_memory():
     return {
         "status": "memory cleared"
     }
-
-
-# ==========================================================
-# ROOT
-# ==========================================================
 
 @app.get("/")
 def root():
@@ -115,10 +80,7 @@ def root():
     }
 
 
-# ==========================================================
-# START
-# ==========================================================
-
+#test
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(
