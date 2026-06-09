@@ -48,7 +48,7 @@ query_rewriter = rewrite_prompt | llm_client | StrOutputParser()
 
 # QA Answering Chain
 qa_prompt = ChatPromptTemplate.from_messages([
-    ("system", "You are a sales company assistant. Answer ONLY using the context. If the answer is not found, say so clearly."),
+    ("system", "You are a sales company assistant. Answer ONLY using the context. If the answer is not found, say so clearly. Your response must ALWAYS be in French."),
     ("user", "Conversation History:\n{history}\n\nContext:\n{context}\n\nQuestion:\n{question}")
 ])
 qa_chain = qa_prompt | llm_client | StrOutputParser()

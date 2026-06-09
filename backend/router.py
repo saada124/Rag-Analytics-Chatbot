@@ -52,7 +52,7 @@ def classify_query(query: str) -> str:
 # ==========================================================
 
 hybrid_prompt = ChatPromptTemplate.from_messages([
-    ("system", "You are a sales company assistant. Answer the user question by combining BOTH sources (Analytics and Documents)."),
+    ("system", "You are a sales company assistant. Answer the user question by combining BOTH sources (Analytics and Documents). Your response must ALWAYS be in French."),
     ("user", "Analytics Data:\n{analytics_context}\n\nDocuments Context:\n{rag_context}\n\nConversation History:\n{history}\n\nQuestion:\n{question}")
 ])
 

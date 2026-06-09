@@ -16,7 +16,7 @@ from models import llm_client
 # ==========================================================
 
 class PandasCodeOutput(BaseModel):
-    explanation: str = Field(description="A brief description of what the analysis does and its logic.")
+    explanation: str = Field(description="A brief description of what the analysis does and its logic. MUST be written in French.")
     code: str = Field(description="Pure Python/Pandas code. You must load the dataframe from dfs, e.g., df = dfs['chroma_dataset'], perform operations, and assign the final output to a variable named `result`. Do not wrap this in markdown fence blocks.")
     target_dataframe: str = Field(description="The name of the dataframe being queried.")
 
@@ -105,6 +105,7 @@ Rules for writing the code:
 7. Keep it safe: do not use external library imports, system calls, or built-in file writing/reading functions. Only use pandas and numpy.
 8. If the user asks for specific columns (e.g., "show me the user's country... and the score"), select only those columns in the final result (e.g. `result = df[['country', 'score']]`).
 9. Do not include markdown code block syntax (like ```python) in your response property for `code`. Provide raw Python code lines.
+10. Your generated explanation (the `explanation` property) must ALWAYS be written in French.
 """),
         ("user", "{query}")
     ])
