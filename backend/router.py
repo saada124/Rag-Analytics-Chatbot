@@ -11,7 +11,8 @@ from rag import (
 
 from models import (
     memory,
-    llm_client
+    llm_client,
+    semantic_cache
 )
 
 # ==========================================================
@@ -118,12 +119,21 @@ def handle_hybrid(query: str) -> dict:
 # ==========================================================
 
 def route_query(query: str) -> dict:
+    # Check semantic cache first — instant response for repeat queries
+    cached = semantic_cache.get_cached_response(query)
+    if cached is not None:
+        return cached
+
     query_type = classify_query(query)
     print(f"[ROUTER] {query_type}")
 
     if query_type == "ANALYTICS":
-        return handle_analytics(query)
-    if query_type == "HYBRID":
-        return handle_hybrid(query)
-    
-    return handle_rag(query)
+        response = handle_analytics(query)
+    elif query_type == "HYBRID":
+        response = handle_hybrid(query)
+    else:
+        response = handle_rag(query)
+
+    # Store in semantic cache for future hits
+    semantic_cache.add_to_cache(query, response)
+    return response

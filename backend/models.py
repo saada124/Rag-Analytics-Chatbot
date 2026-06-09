@@ -1,4 +1,5 @@
 import torch
+import numpy as np
 from collections import deque
 from typing import Sequence, List
 from sentence_transformers import CrossEncoder
@@ -128,3 +129,44 @@ class ConversationMemory:
         self.messages.clear()
 
 memory = ConversationMemory(MEMORY_SIZE)
+
+# ==========================================================
+# SEMANTIC CACHE
+# ==========================================================
+
+class SemanticCache:
+    """
+    In-memory semantic cache using cosine similarity.
+    If a new query is >= threshold similar to a previously cached query,
+    the cached response is returned instantly (skipping the entire LLM pipeline).
+    """
+    def __init__(self, embedding_func, threshold=0.98):
+        self.embeddings = []      # List of numpy vectors
+        self.responses = []       # List of response dicts
+        self.embedding_func = embedding_func
+        self.threshold = threshold
+
+    def get_cached_response(self, query: str):
+        if not self.embeddings:
+            return None
+
+        query_emb = np.array(self.embedding_func.embed_query(query))
+        vectors = np.array(self.embeddings)
+
+        # Cosine similarity (embeddings are already normalized by E5)
+        similarities = np.dot(vectors, query_emb) / (
+            np.linalg.norm(vectors, axis=1) * np.linalg.norm(query_emb)
+        )
+
+        best_idx = int(np.argmax(similarities))
+        if similarities[best_idx] >= self.threshold:
+            print(f"[CACHE HIT] Similarity: {similarities[best_idx]:.4f}")
+            return self.responses[best_idx]
+        return None
+
+    def add_to_cache(self, query: str, response: dict):
+        query_emb = self.embedding_func.embed_query(query)
+        self.embeddings.append(query_emb)
+        self.responses.append(response)
+
+semantic_cache = SemanticCache(embedding_func=embedding_function)
