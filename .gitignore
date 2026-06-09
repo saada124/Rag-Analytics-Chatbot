@@ -1,0 +1,40 @@
+# ======================
+# Python / FastAPI
+# ======================
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.sqlite3
+*.db
+
+.env
+venv/
+.venv/
+
+*.log
+
+# ======================
+# Angular / Node
+# ======================
+node_modules/
+dist/
+.angular/
+*.tsbuildinfo
+coverage/
+
+# ======================
+# IDE
+# ======================
+.vscode/
+.idea/
+
+# ======================
+# OS
+# ======================
+.DS_Store
+Thumbs.db
+
+
+/data
+/chroma_db
