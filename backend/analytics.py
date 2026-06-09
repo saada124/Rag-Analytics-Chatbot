@@ -72,9 +72,14 @@ def get_schema_description() -> str:
         load_dataframes()
     lines = []
     for name, df in DATAFRAMES.items():
-        cols_with_types = [f"{col} ({df[col].dtype})" for col in df.columns]
-        cols = ", ".join(cols_with_types)
-        lines.append(f"- {name}: {cols}")
+        lines.append(f'DATAFRAME KEY: "{name}"')
+        lines.append('AVAILABLE COLUMNS (with up to 3 sample values each):')
+        for col in df.columns:
+            dtype = df[col].dtype
+            samples = df[col].dropna().unique()[:3].tolist()
+            samples = [str(s)[:100] + '...' if len(str(s)) > 100 else s for s in samples]
+            lines.append(f'  - `{col}` (Samples: {samples})')
+        lines.append('')
     return "\n".join(lines)
 
 # ==========================================================
@@ -89,15 +94,17 @@ def generate_pandas_query(query: str) -> PandasCodeOutput:
         ("system", f"""You are an expert business intelligence and data analyst assistant.
 Today's date is {today_str}.
 
-Available DataFrames in the dictionary `dfs` and their columns with data types:
+You have access to the following DataFrames in the dictionary `dfs`.
+YOU MUST ONLY USE THE DATAFRAME KEYS AND COLUMNS LISTED BELOW. DO NOT INVENT COLUMNS.
+
 {schema_desc}
 
 Your task is to write Pandas Python code to answer the user's analytical query.
 Rules for writing the code:
-1. Always start by loading the correct dataframe from `dfs` dictionary, e.g., `df = dfs['chroma_dataset']`.
-2. Perform all necessary filtering, projections, groupings, aggregations, or sorting.
-3. You MUST store the final result of your computation/retrieval in the variable `result`.
-4. Ensure string matching handles cases/spaces cleanly (e.g., use `.str.lower()` and `.str.strip()` to make comparisons case-insensitive).
+1. Extract the correct dataframe from the `dfs` dictionary using the exact DATAFRAME KEY shown above (e.g., if the key is "my_data", use `df = dfs["my_data"]`).
+2. YOU MUST use the provided column sample values to infer how to search. If a string column uses a specific delimiter (like '|' or ','), use `.str.contains(..., case=False, na=False)` to search inside it.
+3. Search across all relevant text columns if the user asks for concepts that might span multiple fields.
+4. You MUST store the final result of your computation/retrieval in the variable `result`.
 5. For date operations:
    - Convert date columns using `pd.to_datetime(df[col], errors='coerce')` before comparing them.
    - For relative dates, today's date is {today_str}.

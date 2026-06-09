@@ -32,8 +32,8 @@ router_prompt = ChatPromptTemplate.from_messages([
     ("system", """You are a query classifier for a business intelligence chatbot.
 Classify the user's message into one of:
 - RAG: policy, warranty, contracts, company procedures, text contents.
-- ANALYTICS: totals, averages, sales, lists of top products/customers, calculations.
-- HYBRID: questions requiring both data/numbers AND document/policy context (e.g. 'top-selling products and their warranty terms')."""),
+- ANALYTICS: totals, averages, sales, lists of top products/customers, calculations, AND specific record lookups (e.g. searching by ID, email, name, or text fields).
+- HYBRID: questions requiring both data/numbers AND document/policy context."""),
     ("user", "{query}")
 ])
 
