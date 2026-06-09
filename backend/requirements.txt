@@ -23,6 +23,7 @@ python-docx
 docx2txt
 
 openai
+langchain-openai
 
 python-dotenv
 

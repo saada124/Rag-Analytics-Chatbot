@@ -1,208 +1,130 @@
 import torch
-
-from openai import OpenAI
-
-from sentence_transformers import (
-    SentenceTransformer,
-    CrossEncoder
-)
+from collections import deque
+from typing import Sequence, List
+from sentence_transformers import CrossEncoder
+from langchain_openai import ChatOpenAI
+from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_core.documents import BaseDocumentCompressor, Document
+from langchain_core.callbacks import Callbacks
 
 from config import (
     OPENROUTER_API_KEY,
     MODEL_NAME,
     EMBEDDING_MODEL_NAME,
-    RERANKER_MODEL_NAME
+    RERANKER_MODEL_NAME,
+    MEMORY_SIZE
 )
 
-DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+# ==========================================================
+# DEVICE
+# ==========================================================
 
-print(f"[INFO] Using device: {DEVICE}")
+DEVICE = (
+    "cuda"
+    if torch.cuda.is_available()
+    else "cpu"
+)
+
+print(f"[INFO] Running on {DEVICE}")
+
+# ==========================================================
+# LANGCHAIN CHAT LLM (OpenRouter / OpenAI wrapper)
+# ==========================================================
 
 if not OPENROUTER_API_KEY:
-    raise ValueError(
-        "OPENROUTER_API_KEY is missing from .env"
-    )
+    raise ValueError("OPENROUTER_API_KEY not found.")
 
-client_llm = OpenAI(
+llm_client = ChatOpenAI(
     base_url="https://openrouter.ai/api/v1",
-    api_key=OPENROUTER_API_KEY
+    api_key=OPENROUTER_API_KEY,
+    model=MODEL_NAME,
+    temperature=0
 )
 
-print(
-    f"[INFO] Loading embedding model: "
-    f"{EMBEDDING_MODEL_NAME}"
+# ==========================================================
+# CUSTOM EMBEDDINGS (Handles E5 prefixes natively)
+# ==========================================================
+
+class E5Embeddings(HuggingFaceEmbeddings):
+    def embed_documents(self, texts: List[str]) -> List[List[float]]:
+        prefixed = [f"passage: {t}" if not t.startswith("passage: ") else t for t in texts]
+        return super().embed_documents(prefixed)
+
+    def embed_query(self, text: str) -> List[float]:
+        prefixed = f"query: {text}" if not text.startswith("query: ") else text
+        return super().embed_query(prefixed)
+
+print(f"[INFO] Loading embeddings: {EMBEDDING_MODEL_NAME}")
+
+embedding_function = E5Embeddings(
+    model_name=EMBEDDING_MODEL_NAME,
+    model_kwargs={"device": DEVICE},
+    encode_kwargs={"normalize_embeddings": True}
 )
 
-embedding_model = SentenceTransformer(
-    EMBEDDING_MODEL_NAME,
-    device=DEVICE
-)
+print("[INFO] Embeddings ready.")
 
-print("[INFO] Embedding model loaded.")
+# ==========================================================
+# CUSTOM DOCUMENT COMPRESSOR (CrossEncoder Reranker)
+# ==========================================================
 
-print(
-    f"[INFO] Loading reranker model: "
-    f"{RERANKER_MODEL_NAME}"
-)
-
-reranker_model = CrossEncoder(
-    RERANKER_MODEL_NAME,
-    device=DEVICE
-)
-
-print("[INFO] Reranker model loaded.")
-
-def embed_texts(texts):
-    """
-    Generate embeddings for a list of texts.
-
-    Returns:
-        List[List[float]]
-    """
-
-    if not texts:
-        return []
-
-    embeddings = embedding_model.encode(
-        texts,
-        convert_to_numpy=True,
-        normalize_embeddings=True,
-        show_progress_bar=False
-    )
-
-    return embeddings.tolist()
-
-def rewrite_query(query: str) -> str:
-    """
-    Rewrite user query for retrieval.
-    """
-
-    prompt = f"""
-You are a retrieval optimization assistant.
-
-Rewrite the user's question into a concise
-search-friendly query.
-
-Do not answer the question.
-
-User Question:
-{query}
-
-Search Query:
-"""
-
-    response = client_llm.chat.completions.create(
-        model=MODEL_NAME,
-        temperature=0,
-        messages=[
-            {
-                "role": "system",
-                "content": (
-                    "Rewrite questions for semantic search."
-                )
-            },
-            {
-                "role": "user",
-                "content": prompt
-            }
-        ]
-    )
-
-    rewritten = (
-        response.choices[0]
-        .message.content
-        .strip()
-    )
-
-    return rewritten
-
-def generate_answer(
-    question: str,
-    context: str
-) -> str:
-    """
-    Generate grounded answer.
-    """
-
-    prompt = f"""
-You are a sales company assistant.
-
-Answer ONLY using the provided context.
-
-If the answer is not contained
-in the context, say:
-
-'I could not find this information
-in the available documents.'
-
-Context:
-{context}
-
-Question:
-{question}
-"""
-
-    response = client_llm.chat.completions.create(
-        model=MODEL_NAME,
-        temperature=0.2,
-        messages=[
-            {
-                "role": "system",
-                "content": (
-                    "Answer using only supplied context."
-                )
-            },
-            {
-                "role": "user",
-                "content": prompt
-            }
-        ]
-    )
-
-    return (
-        response.choices[0]
-        .message.content
-        .strip()
-    )
-
-# RERANK DOCUMENTS
-def rerank_documents(
-    query: str,
-    documents: list,
+class CrossEncoderReranker(BaseDocumentCompressor):
+    model_name: str
+    device: str
     top_n: int = 5
-):
+    _model: object = None
+    
+    class Config:
+        arbitrary_types_allowed = True
 
-    if not documents:
-        return []
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        # Load model once at init time
+        self._model = CrossEncoder(self.model_name, device=self.device)
 
-    pairs = [
-        [query, doc]
-        for doc in documents
-    ]
+    def compress_documents(
+        self,
+        documents: Sequence[Document],
+        query: str,
+        callbacks: Callbacks = None
+    ) -> Sequence[Document]:
+        if not documents:
+            return []
+        
+        pairs = [(query, doc.page_content) for doc in documents]
+        scores = self._model.predict(pairs, show_progress_bar=False)
+        ranked = sorted(zip(documents, scores), key=lambda x: x[1], reverse=True)
+        return [doc for doc, _ in ranked[:self.top_n]]
 
-    scores = reranker_model.predict(
-        pairs,
-        show_progress_bar=False
-    )
+print(f"[INFO] Loading reranker: {RERANKER_MODEL_NAME}")
+reranker_compressor = CrossEncoderReranker(model_name=RERANKER_MODEL_NAME, device=DEVICE)
+print("[INFO] Reranker ready.")
 
-    ranked = sorted(
-        zip(documents, scores),
-        key=lambda x: x[1],
-        reverse=True
-    )
+# ==========================================================
+# CONVERSATION MEMORY
+# ==========================================================
 
-    return [
-        doc
-        for doc, score in ranked[:top_n]
-    ]
+class ConversationMemory:
+    def __init__(self, size=10):
+        self.messages = deque(maxlen=size)
 
-if __name__ == "__main__":
+    def add_user(self, text: str):
+        self.messages.append({"role": "user", "content": text})
 
-    query = "What is the warranty policy?"
-    rewritten = rewrite_query(query)
-    print()
-    print("Original:")
-    print(query)
-    print()
-    print("Rewritten:")
-    print(rewritten)
+    def add_assistant(self, text: str):
+        self.messages.append({"role": "assistant", "content": text})
+
+    def get_history(self) -> str:
+        if not self.messages:
+            return ""
+        lines = []
+        for msg in self.messages:
+            role = msg["role"].upper()
+            content = msg["content"]
+            lines.append(f"{role}: {content}")
+        return "\n".join(lines)
+
+    def clear(self):
+        self.messages.clear()
+
+memory = ConversationMemory(MEMORY_SIZE)
