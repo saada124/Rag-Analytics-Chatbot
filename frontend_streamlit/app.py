@@ -6,7 +6,7 @@ import pandas as pd
 
 # Set page configuration
 st.set_page_config(
-    page_title="Vilavi Chatbot",
+    page_title=" Vilavi Assistant",
     page_icon="🤖",
     layout="centered",
     initial_sidebar_state="expanded",
@@ -39,10 +39,11 @@ st.markdown("""
     
     /* Sleek light Glassmorphism for sidebar */
     [data-testid="stSidebar"] {
-        background: rgba(255, 255, 255, 0.4) !important;
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.95) 0%, rgba(248, 250, 252, 0.9) 100%) !important;
         backdrop-filter: blur(20px);
         -webkit-backdrop-filter: blur(20px);
-        border-right: 1px solid rgba(255, 255, 255, 0.6);
+        border-right: 1px solid rgba(226, 232, 240, 0.8);
+        box-shadow: 4px 0 24px rgba(0, 0, 0, 0.04);
     }
     
     /* Make sure sidebar titles/text look good on the light background */
@@ -53,8 +54,58 @@ st.markdown("""
         color: #1e293b;
     }
 
+    [data-testid="stSidebar"] h1 {
+        font-size: 1.8rem !important;
+        font-weight: 700 !important;
+        background: linear-gradient(135deg, #3B82F6 0%, #8B5CF6 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin-bottom: 0.1rem !important;
+    }
+
+    [data-testid="stSidebar"] h2 {
+        font-size: 0.75rem !important;
+        font-weight: 600 !important;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-top: 0.4rem !important;
+        margin-bottom: 0.3rem !important;
+    }
+
     [data-testid="stSidebar"] hr {
-        border-color: rgba(30, 41, 59, 0.1);
+        border-color: rgba(226, 232, 240, 0.6);
+        margin: 0.4rem 0 !important;
+    }
+
+    /* Sidebar metric container */
+    [data-testid="stSidebar"] [data-testid="stMetricContainer"] {
+        background: linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(139, 92, 246, 0.08) 100%);
+        border: 1px solid rgba(59, 130, 246, 0.15);
+        border-radius: 12px;
+        padding: 1rem;
+        margin: 0.5rem 0;
+    }
+
+    /* Sidebar success/error messages */
+    [data-testid="stSidebar"] .stSuccess {
+        background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(52, 211, 153, 0.1) 100%);
+        border: 1px solid rgba(16, 185, 129, 0.2);
+        border-radius: 10px;
+        padding: 0.75rem 1rem;
+    }
+
+    [data-testid="stSidebar"] .stError {
+        background: linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, rgba(248, 113, 113, 0.1) 100%);
+        border: 1px solid rgba(239, 68, 68, 0.2);
+        border-radius: 10px;
+        padding: 0.75rem 1rem;
+    }
+
+    /* Sidebar info card style */
+    [data-testid="stSidebar"] .stMarkdown {
+        color: #475569;
+        line-height: 1.6;
     }
     
     /* Chat message container animations & styling */
@@ -114,6 +165,11 @@ st.markdown("""
         transform: translateY(-2px);
         box-shadow: 0 6px 20px rgba(59, 130, 246, 0.23);
         background: linear-gradient(135deg, #60A5FA 0%, #3B82F6 100%);
+    }
+
+    /* Sidebar button styling */
+    [data-testid="stSidebar"] .stButton>button {
+        color: white !important;
     }
     
     /* Input box styling */
@@ -178,28 +234,91 @@ def clear_memory():
 
 # Sidebar
 with st.sidebar:
-    st.title("🤖 Vilavi Chatbot")
-    st.markdown("Your intelligent assistant for Analytics and Documentation.")
+    # Header with gradient logo
+    st.markdown("""
+    <div style='text-align: center; padding: 0.4rem 0;'>
+        <div style='font-size: 4rem; margin-bottom: -1.9rem;'>🤖</div>
+        <h1 style='margin: 0; font-size: 1.3rem; font-weight: 700; 
+                   background: linear-gradient(135deg, #3B82F6 0%, #8B5CF6 100%);
+                   -webkit-background-clip: text; -webkit-text-fill-color: transparent;'>
+            VilaBot
+        </h1>
+        <p style='color: #64748b; font-size: 0.7rem; margin: 0.1rem 0 0 0;'>
+            Your intelligent assistant
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
     
-    st.divider()
+    st.markdown("---")
     
-    st.subheader("System Status")
+    # System Status Section
+    st.markdown("""
+    <h2 style='font-size: 0.75rem; font-weight: 600; color: #64748b; 
+               text-transform: uppercase; letter-spacing: 0.05em; margin: 0.3rem 0 0.3rem 0;'>
+        System Status
+    </h2>
+    """, unsafe_allow_html=True)
+    
     health_data = check_health()
-    if health_data and health_data.get("status") == "ok":
-        st.success("Connected to Backend")
-        if "vector_documents" in health_data:
-            st.metric("Documents Indexed", health_data["vector_documents"])
-    else:
-        st.error("Backend Disconnected")
-        st.caption("Please ensure the FastAPI server is running.")
-        
-    st.divider()
     
+    if health_data and health_data.get("status") == "ok":
+        st.markdown("""
+        <div style='background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(52, 211, 153, 0.1) 100%);
+                    border: 1px solid rgba(16, 185, 129, 0.2); border-radius: 8px; 
+                    padding: 0.4rem 0.6rem; margin: 0.2rem 0;'>
+            <div style='display: flex; align-items: center; gap: 0.3rem;'>
+                <span style='font-size: 1rem;'>✅</span>
+                <span style='color: #065f46; font-weight: 600; font-size: 0.75rem;'>Connected to Backend</span>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        if "vector_documents" in health_data:
+            st.markdown(f"""
+            <div style='background: linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(139, 92, 246, 0.08) 100%);
+                        border: 1px solid rgba(59, 130, 246, 0.15); border-radius: 8px; 
+                        padding: 0.4rem 0.6rem; margin: 0.15rem 0;'>
+                <div style='color: #64748b; font-size: 0.65rem; margin-bottom: 0.05rem;'>Documents Indexed</div>
+                <div style='font-size: 1.2rem; font-weight: 700; color: #3B82F6;'>{health_data['vector_documents']}</div>
+            </div>
+            """, unsafe_allow_html=True)
+    else:
+        st.markdown("""
+        <div style='background: linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, rgba(248, 113, 113, 0.1) 100%);
+                    border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 8px; 
+                    padding: 0.4rem 0.6rem; margin: 0.2rem 0;'>
+            <div style='display: flex; align-items: center; gap: 0.3rem;'>
+                <span style='font-size: 1rem;'>❌</span>
+                <span style='color: #991b1b; font-weight: 600; font-size: 0.75rem;'>Backend Disconnected</span>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        st.caption("Please ensure the FastAPI server is running.")
+
+    st.markdown("---")
+
+    # Quick Actions
+    st.markdown("""
+    <h2 style='font-size: 0.75rem; font-weight: 600; color: #64748b;
+               text-transform: uppercase; letter-spacing: 0.05em; margin: 0.3rem 0 0.3rem 0;'>
+        Quick Actions
+    </h2>
+    """, unsafe_allow_html=True)
+
     if st.button("🗑️ Clear Chat History", use_container_width=True):
         clear_memory()
 
+    # Footer
+    st.markdown("---")
+    st.markdown("""
+    <div style='text-align: center; padding: 0.3rem 0; color: #94a3b8; font-size: 0.65rem;'>
+        <div style='margin-bottom: 0.1rem;'>Version 2.7.5</div>
+        <div>© 2026 VilaBot</div>
+    </div>
+    """, unsafe_allow_html=True)
+
 # Main Application
-st.title("Vilavi Assistant")
+st.title("VilaBot")
 st.markdown("Ask me questions about enterprise policies, documentations, or analytics data!")
 
 # Display chat messages from history
