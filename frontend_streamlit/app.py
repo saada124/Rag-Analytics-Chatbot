@@ -210,8 +210,9 @@ st.markdown("""
 API_URL = os.environ.get("API_URL", "http://127.0.0.1:8000")
 
 # Initialize session state
+DEFAULT_MESSAGE = {"role": "assistant", "content": "Bonjour ! Je suis Vivi, votre assistante virtuelle, poser moi vos questions 👇"}
 if "messages" not in st.session_state:
-    st.session_state.messages = []
+    st.session_state.messages = [DEFAULT_MESSAGE]
 
 # Backend Connection Check
 @st.cache_data(ttl=10)
@@ -227,7 +228,7 @@ def check_health():
 def clear_memory():
     try:
         requests.post(f"{API_URL}/clear-memory", timeout=5)
-        st.session_state.messages = []
+        st.session_state.messages = [DEFAULT_MESSAGE]
         st.toast("Conversation memory cleared successfully!", icon="✅")
     except Exception as e:
         st.error(f"Failed to clear memory on the server: {e}")
@@ -319,7 +320,7 @@ with st.sidebar:
 
 # Main Application
 st.title("VilaBot")
-st.markdown("Ask me questions about enterprise policies, documentations, or analytics data!")
+st.markdown("Besoin d'informations ? Posez-moi vos questions !")
 
 # Display chat messages from history
 for message in st.session_state.messages:
