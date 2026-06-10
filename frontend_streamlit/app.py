@@ -239,12 +239,7 @@ with st.sidebar:
     st.markdown("""
     <div style='text-align: center; padding: 0.4rem 0;'>
         <div style='font-size: 4rem; margin-bottom: -1.9rem;'>🤖</div>
-        <h1 style='margin: 0; font-size: 1.3rem; font-weight: 700; 
-                   background: linear-gradient(135deg, #3B82F6 0%, #8B5CF6 100%);
-                   -webkit-background-clip: text; -webkit-text-fill-color: transparent;'>
-            VilaBot
-        </h1>
-        <p style='color: #64748b; font-size: 0.7rem; margin: 0.1rem 0 0 0;'>
+        <p style='color: #64748b; font-size: 0.95rem; margin: 1.1rem 0 0 0;'>
             Your intelligent assistant
         </p>
     </div>
