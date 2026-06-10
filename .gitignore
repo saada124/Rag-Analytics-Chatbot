@@ -11,7 +11,8 @@ __pycache__/
 .env
 venv/
 .venv/
-
+.chroma_db/
+chroma_db/
 *.log
 
 # ======================
