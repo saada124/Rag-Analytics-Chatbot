@@ -238,7 +238,7 @@ with st.sidebar:
     # Header with gradient logo
     st.markdown("""
     <div style='text-align: center; padding: 0.4rem 0;'>
-        <div style='font-size: 4rem; margin-bottom: -1.9rem;'>🤖</div>
+        <div style='font-size: 7rem; margin-bottom: -1.9rem;'>🤖</div>
         <p style='color: #64748b; font-size: 0.95rem; margin: 1.1rem 0 0 0;'>
             Your intelligent assistant
         </p>
