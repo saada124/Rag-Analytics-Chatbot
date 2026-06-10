@@ -1,104 +1,189 @@
-# Vilavi Chatbot
+# 🤖 Vilavi Chatbot
 
-A sophisticated business intelligence chatbot that combines Retrieval-Augmented Generation (RAG) with advanced analytics capabilities. Built with FastAPI, LangChain, and Streamlit, it provides intelligent document search, data analysis, and natural language querying for enterprise data.
+> A business intelligence chatbot combining Retrieval-Augmented Generation (RAG) with structured data analytics. Built with FastAPI, LangChain, and Streamlit.
 
-## 🚀 Features
+![Version](https://img.shields.io/badge/version-2.7.5-blue?style=flat-square)
+![Python](https://img.shields.io/badge/python-3.8%2B-blue?style=flat-square&logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-async-009688?style=flat-square&logo=fastapi&logoColor=white)
+![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)
+![Last Updated](https://img.shields.io/badge/updated-June%202026-lightgrey?style=flat-square)
 
-### Document Intelligence (RAG)
-- **Multi-format Document Ingestion**: Supports PDF, DOCX, and TXT files
-- **Vector Database**: ChromaDB for efficient semantic search
-- **Advanced Embeddings**: E5 multilingual embeddings for cross-lingual support
-- **Intelligent Reranking**: BGE reranker for improved relevance scoring
-- **Contextual Compression**: Refines search results for better precision
-- **Query Condensation**: Resolves pronouns and references from conversation history
-- **Source Citation**: Provides inline citations for all factual claims
-- **French Language Support**: All responses are generated in French
+---
 
-### Analytics Engine
-- **Structured Data Processing**: Ingests CSV and Excel files
-- **LLM-Powered Query Generation**: Automatically generates Pandas code for data analysis
-- **Schema-Aware**: Understands data structure and column relationships
-- **Automatic Error Correction**: Retries failed queries with corrected code (up to 3 attempts)
-- **Data Normalization**: Automatic column cleaning, date parsing, and type conversion
-- **Smart Keyword Search**: Intelligently searches across multiple text columns
-- **Result Formatting**: Converts results to JSON-friendly formats with proper type handling
+## 📋 Table of Contents
 
-### Intelligent Routing
-- **Query Classification**: Automatically routes queries to RAG, Analytics, or Hybrid modes
-- **Parallel Execution**: Hybrid queries run analytics and RAG retrieval simultaneously
-- **Semantic Caching**: Caches similar queries to improve response time (98% similarity threshold)
-- **Conversation Memory**: Maintains context for follow-up questions (configurable size)
+- [Overview](#overview)
+- [✨ Features](#-features)
+- [🏗️ Architecture](#️-architecture)
+- [🛠️ Tech Stack](#️-tech-stack)
+- [🚀 Getting Started](#-getting-started)
+- [⚙️ Configuration](#️-configuration)
+- [💬 Usage](#-usage)
+- [📡 API Reference](#-api-reference)
+- [📁 Project Structure](#-project-structure)
+- [🗺️ Roadmap](#️-roadmap)
+- [🤝 Contributing](#-contributing)
+- [📄 License](#-license)
 
-### Modern Frontend
-- **Glassmorphism UI**: Beautiful, modern interface with gradient backgrounds
-- **Chat Interface**: Real-time chat with message history
-- **Source Display**: Expandable sections showing document sources
-- **Data Visualization**: Interactive data tables for analytics results
-- **Health Monitoring**: Real-time backend connection status
-- **Memory Management**: Clear conversation history with one click
+---
 
-### Backend API
-- **FastAPI Framework**: High-performance async API
-- **REST Endpoints**: Clean RESTful API design
-- **Health Checks**: Monitor system status and document count
-- **Ingestion Control**: Manual trigger for document re-indexing
-- **Memory Management**: Clear conversation memory endpoint
-- **Lifespan Management**: Automatic data loading on startup
+## Overview
+
+Vilavi Chatbot enables natural language querying over both unstructured documents and structured data. It automatically routes questions to the right engine — semantic document search, pandas-powered analytics, or a hybrid of both — and returns answers in French with inline source citations.
+
+---
+
+## ✨ Features
+
+### 📄 Document Intelligence (RAG)
+
+| Capability | Details |
+|---|---|
+| Multi-format ingestion | PDF, DOCX, and TXT files |
+| Semantic search | ChromaDB vector database with multilingual E5 embeddings |
+| Intelligent reranking | BGE reranker for improved relevance scoring |
+| Contextual compression | Refines retrieved chunks for higher precision |
+| Query condensation | Resolves pronouns and references from conversation history |
+| Source citations | Every factual claim backed by an inline citation |
+| Language | All responses generated in French 🇫🇷 |
+
+### 📊 Analytics Engine
+
+| Capability | Details |
+|---|---|
+| Structured data processing | Ingests CSV and Excel files |
+| LLM-generated Pandas code | Translates natural language into data queries |
+| Schema-aware | Understands column names, data types, and relationships |
+| Auto error correction | Retries failed queries with corrected code (up to 3 attempts) |
+| Data normalization | Automatic column cleaning, date parsing, type conversion |
+| Smart keyword search | Intelligently searches across multiple text columns |
+
+### 🧠 Intelligent Routing
+
+| Capability | Details |
+|---|---|
+| Query classification | Auto-routes to RAG, Analytics, or Hybrid mode |
+| Parallel hybrid execution | Analytics and RAG retrieval run simultaneously |
+| Semantic caching | Caches similar queries at 98% similarity threshold |
+| Conversation memory | Maintains context across follow-ups (configurable window) |
+
+### 🎨 Frontend
+
+| Capability | Details |
+|---|---|
+| Modern UI | Glassmorphism design with gradient backgrounds |
+| Real-time chat | Message history with expandable source citations |
+| Data tables | Interactive display for analytics results |
+| Health indicator | Live backend connection status |
+| Memory reset | Clear conversation history with one click |
+
+---
+
+## 🏗️ Architecture
+
+How a user query flows through the system:
+
+```
+                         ┌─────────────────────────────────────┐
+                         │         Streamlit Frontend           │
+                         │  Chat UI · Source viewer · Tables    │
+                         └──────────────────┬──────────────────┘
+                                            │ POST /chat
+                         ┌──────────────────▼──────────────────┐
+                         │           FastAPI Backend            │
+                         │                                      │
+                         │   ┌────────────────────────────┐    │
+                         │   │     Semantic Cache (98%)    │    │
+                         │   └──────────────┬─────────────┘    │
+                         │                  │ cache miss        │
+                         │   ┌──────────────▼─────────────┐    │
+                         │   │       Query Router          │    │
+                         │   └───────┬──────────┬──────────┘    │
+                         │           │          │               │
+                         │    ┌──────▼──┐  ┌───▼──────┐        │
+                         │    │   RAG   │  │Analytics │        │
+                         │    │ Pipeline│  │ Engine   │        │
+                         │    └──────┬──┘  └───┬──────┘        │
+                         │           │          │               │
+                         │    ┌──────▼──┐  ┌───▼──────┐        │
+                         │    │ChromaDB │  │  Pandas  │        │
+                         │    │Vectors  │  │  + CSV   │        │
+                         │    └─────────┘  └──────────┘        │
+                         │                                      │
+                         │         OpenRouter LLM               │
+                         │       (GPT-4o-mini default)          │
+                         └──────────────────────────────────────┘
+```
+
+### Query routing logic
+
+```
+User query
+    │
+    ├─── Contains data keywords? ──► Analytics Engine
+    │         (sales, count, total…)       │
+    │                                      │
+    ├─── Contains doc keywords?  ──► RAG Pipeline
+    │         (policy, terms, explain…)    │
+    │                                      │
+    └─── Both?  ─────────────────► Hybrid (parallel)
+                                           │
+                                    Merge & respond
+```
+
+---
 
 ## 🛠️ Tech Stack
 
-### Backend
-- **FastAPI**: Modern, fast web framework for building APIs
-- **LangChain**: Framework for building LLM applications
-- **ChromaDB**: Open-source vector database
-- **PyTorch**: Deep learning framework for model execution
-- **Pandas**: Data manipulation and analysis
-- **NumPy**: Numerical computing
-- **Sentence Transformers**: State-of-the-art embeddings
+```
+┌─────────────────────────────────────────────────────┐
+│                     Frontend                        │
+│          Streamlit · Requests · Pandas              │
+├─────────────────────────────────────────────────────┤
+│                      API Layer                      │
+│                FastAPI (async REST)                 │
+├──────────────────────┬──────────────────────────────┤
+│     RAG Pipeline     │       Analytics Engine       │
+│  LangChain           │  Pandas · NumPy              │
+│  ChromaDB            │  LLM code generation         │
+│  E5 Embeddings       │  Auto error correction       │
+│  BGE Reranker        │                              │
+├──────────────────────┴──────────────────────────────┤
+│                     Models                          │
+│  LLM: OpenRouter (GPT-4o-mini)                      │
+│  Embeddings: intfloat/multilingual-e5-large         │
+│  Reranker:   BAAI/bge-reranker-base                 │
+└─────────────────────────────────────────────────────┘
+```
 
-### Models
-- **LLM**: OpenRouter (GPT-4o-mini by default)
-- **Embeddings**: intfloat/multilingual-e5-large
-- **Reranker**: BAAI/bge-reranker-base
+---
 
-### Frontend
-- **Streamlit**: Python framework for ML apps
-- **Requests**: HTTP library for API calls
-- **Pandas**: Data visualization
-
-## 📋 Installation
+## 🚀 Getting Started
 
 ### Prerequisites
-- Python 3.8 or higher
-- pip package manager
-- OpenRouter API key
 
-### Backend Setup
+- Python 3.8+
+- `pip`
+- An [OpenRouter](https://openrouter.ai) API key
 
-1. **Clone the repository**
+### Step 1 — Clone the repository
+
 ```bash
 git clone <repository-url>
 cd chatbot2
 ```
 
-2. **Navigate to backend directory**
+### Step 2 — Set up the backend
+
 ```bash
 cd backend
-```
-
-3. **Create virtual environment**
-```bash
 python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-```
-
-4. **Install dependencies**
-```bash
+source venv/bin/activate        # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-5. **Configure environment variables**
-Create a `.env` file in the backend directory:
+Create a `.env` file in the `backend/` directory:
+
 ```env
 OPENROUTER_API_KEY=your_openrouter_api_key_here
 MODEL_NAME=openai/gpt-4o-mini
@@ -108,170 +193,218 @@ TOP_K=20
 TOP_N=5
 ```
 
-6. **Prepare data directories**
-Place your documents in the appropriate directories:
-- `backend/data/documents/pdf/` - PDF files
-- `backend/data/documents/docx/` - Word documents
-- `backend/data/documents/txt/` - Text files
-- `backend/data/csv/` - CSV/Excel files for analytics
+Place your data files in the correct directories:
 
-7. **Run ingestion**
+```
+backend/data/
+├── 📁 documents/
+│   ├── 📂 pdf/          ← PDF files
+│   ├── 📂 docx/         ← Word documents
+│   └── 📂 txt/          ← Plain text files
+└── 📁 csv/              ← CSV or Excel files for analytics
+```
+
+Run ingestion, then start the server:
+
 ```bash
 python ingest.py
-```
-
-8. **Start the backend server**
-```bash
 python app.py
-```
-The backend will start on `http://0.0.0.0:8000`
-
-### Frontend Setup
-
-1. **Navigate to frontend directory**
-```bash
-cd frontend_streamlit
+# ✅ Backend running at http://0.0.0.0:8000
 ```
 
-2. **Install dependencies**
+### Step 3 — Set up the frontend
+
 ```bash
+cd ../frontend_streamlit
 pip install -r requirements.txt
-```
 
-3. **Configure API URL**
-Set the `API_URL` environment variable:
-```bash
-export API_URL=http://127.0.0.1:8000  # On Windows: set API_URL=http://127.0.0.1:8000
-```
-
-4. **Start the frontend**
-```bash
+export API_URL=http://127.0.0.1:8000   # Windows: set API_URL=...
 streamlit run app.py
+# ✅ Frontend running at http://localhost:8501
 ```
-The frontend will open in your browser at `http://localhost:8501`
 
-## 📖 Usage
+---
 
-### Document Search
-Ask questions about your documents:
-- "What are the warranty terms?"
-- "Explain the return policy"
-- "What are the payment options?"
+## ⚙️ Configuration
 
-### Data Analytics
-Query your structured data:
-- "Show me total sales by region"
-- "List all customers who signed up in 2023"
-- "What's the average order value?"
+Key parameters in `backend/config.py`. All can be overridden via `.env`.
 
-### Hybrid Queries
-Combine document context with data analysis:
-- "What's the return policy and how many returns were processed last month?"
-- "Show me the warranty terms and related claim statistics"
+| Parameter | Default | Description |
+|---|---|---|
+| `CHUNK_SIZE` | `1000` | Token size for document chunks |
+| `CHUNK_OVERLAP` | `200` | Overlap between adjacent chunks |
+| `VECTOR_SEARCH_TOP_K` | `20` | Documents retrieved before reranking |
+| `RERANKER_TOP_K` | `5` | Documents retained after reranking |
+| `MEMORY_SIZE` | `10` | Conversation turns held in memory |
+| `MULTI_QUERY_COUNT` | `4` | Number of query expansions generated |
 
-### API Usage
+### How chunk parameters affect quality
 
-**Health Check**
+```
+ CHUNK_SIZE  ──────────────────────────────────────────────►
+ 
+ Small (500)   │ Fast · cheap · may lose context
+               │
+ Medium (1000) │ ✅ Recommended default — balanced precision
+               │
+ Large (2000)  │ Rich context · slower · higher cost
+
+ CHUNK_OVERLAP ──────────────────────────────────────────────►
+ 
+ Low (50)    │ Faster ingestion · may miss boundary content
+ High (300)  │ ✅ Better continuity · larger index size
+```
+
+---
+
+## 💬 Usage
+
+### Document search 📄
+
+```
+"What are the warranty terms?"
+"Explain the return policy."
+"What payment options are available?"
+```
+
+### Data analytics 📊
+
+```
+"Show total sales by region."
+"List all customers who signed up in 2023."
+"What is the average order value?"
+```
+
+### Hybrid queries 🔀
+
+```
+"What is the return policy, and how many returns were processed last month?"
+"Show me the warranty terms alongside related claim statistics."
+```
+
+---
+
+## 📡 API Reference
+
+### Endpoints at a glance
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/health` | System status and document count |
+| `POST` | `/chat` | Send a message and receive a response |
+| `POST` | `/ingest` | Trigger document re-indexing |
+| `POST` | `/clear-memory` | Reset conversation history |
+
+### `GET /health`
+
 ```bash
 curl http://localhost:8000/health
 ```
 
-**Chat**
+### `POST /chat`
+
 ```bash
 curl -X POST http://localhost:8000/chat \
   -H "Content-Type: application/json" \
   -d '{"message": "What are the warranty terms?"}'
 ```
 
-**Ingest Documents**
+### `POST /ingest`
+
 ```bash
 curl -X POST http://localhost:8000/ingest
 ```
 
-**Clear Memory**
+### `POST /clear-memory`
+
 ```bash
 curl -X POST http://localhost:8000/clear-memory
 ```
 
-## 🔧 Configuration
-
-Key configuration parameters in `backend/config.py`:
-
-- `CHUNK_SIZE`: Document chunk size for vectorization (default: 1000)
-- `CHUNK_OVERLAP`: Overlap between chunks (default: 200)
-- `VECTOR_SEARCH_TOP_K`: Number of documents to retrieve (default: 20)
-- `RERANKER_TOP_K`: Number of documents after reranking (default: 5)
-- `MEMORY_SIZE`: Conversation history size (default: 10)
-- `MULTI_QUERY_COUNT`: Number of query expansions (default: 4)
+---
 
 ## 📁 Project Structure
 
 ```
 chatbot2/
-├── backend/
-│   ├── app.py              # FastAPI application
-│   ├── config.py           # Configuration settings
-│   ├── rag.py              # RAG implementation
+├── 📦 backend/
+│   ├── app.py              # FastAPI application entry point
+│   ├── config.py           # Configuration and environment variables
+│   ├── rag.py              # RAG pipeline implementation
 │   ├── analytics.py        # Analytics engine
 │   ├── router.py           # Query routing logic
-│   ├── ingest.py           # Document ingestion
-│   ├── models.py           # ML models and utilities
-│   ├── requirements.txt    # Backend dependencies
-│   ├── data/
-│   │   ├── documents/      # Document storage
+│   ├── ingest.py           # Document ingestion script
+│   ├── models.py           # ML model loading and utilities
+│   ├── requirements.txt
+│   ├── 📂 data/
+│   │   ├── documents/      # Unstructured document storage
 │   │   │   ├── pdf/
 │   │   │   ├── docx/
 │   │   │   └── txt/
-│   │   └── csv/            # Structured data
-│   └── chroma_db/          # Vector database
-├── frontend_streamlit/
-│   ├── app.py              # Streamlit frontend
-│   └── requirements.txt    # Frontend dependencies
+│   │   └── csv/            # Structured data for analytics
+│   └── 🗄️ chroma_db/       # Persisted vector database
+├── 🎨 frontend_streamlit/
+│   ├── app.py              # Streamlit UI
+│   └── requirements.txt
 └── README.md
 ```
 
-## 🚧 Future Enhancements
+---
 
-### Short-term Improvements
-- **User Authentication**: Add user login and session management
-- **Multi-language Support**: Extend beyond French to support multiple languages
-- **Real-time Document Upload**: Allow users to upload documents through the UI
-- **Advanced Analytics Visualization**: Add charts and graphs for data insights
-- **API Rate Limiting**: Implement rate limiting for production deployment
-- **Docker Containerization**: Create Docker images for easy deployment
-- **CI/CD Pipeline**: Set up automated testing and deployment
+## 🗺️ Roadmap
 
-### Medium-term Enhancements
-- **Hybrid Search**: Combine keyword search with semantic search
-- **Document Versioning**: Track and manage document versions
-- **User Feedback Collection**: Allow users to rate responses for improvement
-- **Performance Monitoring**: Add logging and metrics for system health
-- **Response Streaming**: Implement streaming responses for better UX
-- **Webhook Integrations**: Support external system integrations
-- **Mobile App**: Develop a mobile application
+### 🟢 Short-term
 
-### Long-term Vision
-- **Multi-modal Support**: Handle images, audio, and video content
-- **Advanced RAG Techniques**: Implement graph RAG, hierarchical RAG
-- **Custom Model Fine-tuning**: Fine-tune models on domain-specific data
-- **Collaborative Features**: Enable sharing and collaboration on queries
-- **Advanced Security**: Add encryption, audit logs, and compliance features
-- **Scalability**: Implement horizontal scaling for large deployments
-- **Plugin System**: Allow third-party extensions and integrations
+- [ ] User authentication and session management
+- [ ] Real-time document upload through the UI
+- [ ] Charts and graphs for analytics results
+- [ ] API rate limiting for production
+- [ ] Docker images and CI/CD pipeline
 
-## 🤝 Contributing
+### 🟡 Medium-term
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+- [ ] Hybrid keyword + semantic search
+- [ ] Document versioning
+- [ ] Response streaming for better UX
+- [ ] User feedback collection for response quality improvement
+- [ ] Webhook integrations for external systems
 
-## 📄 License
+### 🔵 Long-term
 
-This project is licensed under the MIT License.
-
-## 📞 Support
-
-For support and questions, please open an issue in the repository.
+- [ ] Multi-modal support (images, audio, video)
+- [ ] Advanced RAG techniques (graph RAG, hierarchical RAG)
+- [ ] Domain-specific model fine-tuning
+- [ ] Horizontal scaling for large deployments
+- [ ] Plugin system for third-party extensions
 
 ---
 
-**Version**: 2.7.5  
-**Last Updated**: June 2026
+## 🤝 Contributing
+
+Contributions are welcome! Please open an issue first to discuss what you'd like to change, then submit a pull request.
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/my-feature`)
+3. Commit your changes (`git commit -m 'Add my feature'`)
+4. Push to the branch (`git push origin feature/my-feature`)
+5. Open a pull request
+
+---
+
+## 📄 License
+
+This project is licensed under the MIT License. See `LICENSE` for details.
+
+---
+
+## 🆘 Support
+
+For questions or bug reports, please [open an issue](../../issues) in the repository.
+
+---
+
+<div align="center">
+
+Made with ❤️ · **Version 2.7.5** · Last updated June 2026
+
+</div>
