@@ -39,7 +39,7 @@ def load_dataframes():
             #parsing date columns
             for col in df.columns:
                 if any(kw in col for kw in ["date", "time", "period", "month", "year"]):
-                    df[col] = pd.to_datetime(df[col], errors="coerce")
+                    df[col] = pd.to_datetime(df[col], errors="coerce", format="mixed")
 
             DATAFRAMES[file_path.stem] = df
             print(f"[INFO] Loaded & Normalized {file_path.stem}")
@@ -89,7 +89,7 @@ Rules for writing the code:
 3. When searching for features, concepts, or keywords (e.g., "embeddings", "enterprise"), you MUST smartly search across ALL text/string columns that could logically contain that information (e.g., descriptions, tags, reviews, product names). Combine conditions using `|` (OR), for example: `(df['tags'].str.contains('keyword', case=False, na=False)) | (df['description'].str.contains('keyword', case=False, na=False))`.
 4. You MUST store the final result of your computation/retrieval in the variable `result`.
 5. For date operations:
-   - Convert date columns using `pd.to_datetime(df[col], errors='coerce')` before comparing them.
+   - Convert date columns using `pd.to_datetime(df[col], errors='coerce', format='mixed')` before comparing them.
    - For relative dates, today's date is {today_str}.
 6. Output size: If the user asks for a count, total, or a full list (e.g., "how many", "list all", "show all"), return ALL matching rows — do NOT add `.head()`. Only use `.head(50)` if the user is browsing or exploring without specifying they want the full result.
 7. Keep it safe: do not use external library imports, system calls, or built-in file writing/reading functions. Only use pandas and numpy.
@@ -97,6 +97,9 @@ Rules for writing the code:
 9. Do not include markdown code block syntax (like ```python) in your response property for `code`. Provide raw Python code lines.
 10. Your generated explanation (the `explanation` property) must ALWAYS be written in French.
 11. When filtering for exact states or categories (like status="active"), use exact equality (`==`) rather than exclusionary logic (like `!= 'inactive'`) unless the user explicitly asks to exclude something.
+12. IF the user provides a specific text format example (e.g. "the response should be..."), your Python code MUST build a formatted string matching that template exactly (using \n for newlines and f-strings) and assign it to the `result` variable.
+13. When finding entities (like customers, products, or reps) whose total/revenue exceeds a certain amount, you MUST group by the entity and sum the values FIRST, and then filter the aggregated result. Do not just filter individual rows.
+14. CRITICAL: If the user's query requires data or metrics that DO NOT exist in the available columns (e.g., asking for "profit margin" when there is no cost column, or "customer satisfaction" when there is no satisfaction column), you MUST NOT fabricate or invent a calculation from unrelated columns. Instead, set `result` to a string explaining which specific columns or data would be needed and that the current dataset does not contain them.
 """),
         ("user", "{query}")
     ])
@@ -130,7 +133,7 @@ Your task is to fix the bug in the code and return the corrected version. Follow
 3. You MUST store the final result of your computation/retrieval in the variable `result`.
 4. Ensure string matching handles cases/spaces cleanly (e.g., use `.str.lower()` and `.str.strip()` to make comparisons case-insensitive).
 5. For date operations:
-   - Convert date columns using `pd.to_datetime(df[col], errors='coerce')` before comparing them.
+   - Convert date columns using `pd.to_datetime(df[col], errors='coerce', format='mixed')` before comparing them.
    - For relative dates, today's date is {today_str}.
 6. Output size: If the user asks for a count, total, or a full list, return ALL matching rows. Only use `.head(50)` if the user is browsing or exploring without specifying they want the full result.
 7. Keep it safe: do not use external library imports, system calls, or built-in file writing/reading functions. Only use pandas and numpy.
@@ -138,6 +141,9 @@ Your task is to fix the bug in the code and return the corrected version. Follow
 9. Do not include markdown code block syntax (like ```python) in your response property for `code`. Provide raw Python code lines.
 10. Your generated explanation (the `explanation` property) must ALWAYS be written in French.
 11. When filtering for exact states or categories (like status="active"), use exact equality (`==`) rather than exclusionary logic (like `!= 'inactive'`) unless the user explicitly asks to exclude something.
+12. IF the user provides a specific text format example (e.g. "the response should be..."), your Python code MUST build a formatted string matching that template exactly (using \n for newlines and f-strings) and assign it to the `result` variable.
+13. When finding entities (like customers, products, or reps) whose total/revenue exceeds a certain amount, you MUST group by the entity and sum the values FIRST, and then filter the aggregated result. Do not just filter individual rows.
+14. CRITICAL: If the user's query requires data or metrics that DO NOT exist in the available columns (e.g., asking for "profit margin" when there is no cost column, or "customer satisfaction" when there is no satisfaction column), you MUST NOT fabricate or invent a calculation from unrelated columns. Instead, set `result` to a string explaining which specific columns or data would be needed and that the current dataset does not contain them.
 """),
         ("user", "Please fix the code above to resolve the execution error.")
     ])

@@ -216,9 +216,53 @@ def dataframe_summary(df):
 
 def load_csv(file_path):
 
-    return pd.read_csv(
-        file_path
-    )
+    # Detect separator
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            first_line = f.readline()
+    except UnicodeDecodeError:
+        with open(file_path, 'r', encoding='latin-1') as f:
+            first_line = f.readline()
+            
+    sep = ';' if ';' in first_line else ','
+
+    try:
+        df = pd.read_csv(
+            file_path,
+            encoding='utf-8',
+            sep=sep,
+            engine='c',
+            na_values=['NULL', 'null', ''],
+            low_memory=False,
+            on_bad_lines='skip'
+        )
+    except UnicodeDecodeError:
+        df = pd.read_csv(
+            file_path,
+            encoding='latin-1',
+            sep=sep,
+            engine='c',
+            na_values=['NULL', 'null', ''],
+            low_memory=False,
+            on_bad_lines='skip'
+        )
+
+    # Clean trailing commas from column names
+    df.columns = df.columns.str.rstrip(',')
+    
+    # Clean trailing commas from string columns
+    for col in df.select_dtypes(include='object').columns:
+        # Strip trailing commas
+        df[col] = df[col].apply(lambda x: x.rstrip(',') if isinstance(x, str) else x)
+        # Replace 'NULL' with NaN since it might have been bypassed by na_values due to the commas
+        df[col] = df[col].replace({'NULL': pd.NA, 'null': pd.NA, '': pd.NA})
+        # Attempt to convert to numeric
+        try:
+            df[col] = pd.to_numeric(df[col])
+        except (ValueError, TypeError):
+            pass
+
+    return df
 
 def load_excel(file_path):
 

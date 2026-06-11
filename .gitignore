@@ -37,5 +37,8 @@ coverage/
 Thumbs.db
 
 
-/data
-/chroma_db
+backend/data
+backend/chroma_db
+backend/cache
+backend/data/csv/DATA VENTE.csv
+backend/data/csv/testcsv.csv
