@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 APP_NAME = "Vilavi Chatbot"
-APP_VERSION = "2.8.0"
+APP_VERSION = "2.8.1"
 HOST = "0.0.0.0"
 PORT = 8000
 
