@@ -1,21 +1,17 @@
 import json
+import hashlib
 from pathlib import Path
 
 import pandas as pd
 
 from langchain_core.documents import Document
-
 from langchain_chroma import Chroma
-
 from langchain_community.document_loaders import (
     PyPDFLoader,
     TextLoader,
-    Docx2txtLoader
+    Docx2txtLoader,
 )
-
-from langchain_text_splitters import (
-    RecursiveCharacterTextSplitter
-)
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 from config import (
     PDF_DIR,
@@ -24,402 +20,282 @@ from config import (
     STRUCTURED_DIR,
     CHROMA_DIR,
     CHUNK_SIZE,
-    CHUNK_OVERLAP
+    CHUNK_OVERLAP,
+    CACHE_DIR,
+    MIN_CHUNK_CHARS,
 )
 
 from models import embedding_function
 
-# ==========================================================
-# TEXT SPLITTER
-# ==========================================================
-
 text_splitter = RecursiveCharacterTextSplitter(
     chunk_size=CHUNK_SIZE,
     chunk_overlap=CHUNK_OVERLAP,
-    separators=[
-        "\n\n",
-        "\n",
-        ". ",
-        " ",
-        ""
-    ]
+    separators=["\n\n", "\n", ". ", " ", ""],
 )
-
-# ==========================================================
-# VECTOR STORE
-# ==========================================================
 
 _vectorstore = None
 
+
 def get_vectorstore():
-
     global _vectorstore
-
     if _vectorstore is None:
-
         _vectorstore = Chroma(
             persist_directory=str(CHROMA_DIR),
-            embedding_function=embedding_function
+            embedding_function=embedding_function,
         )
-
     return _vectorstore
 
-# ==========================================================
-# PDF
-# ==========================================================
 
 def load_pdf(file_path):
+    return PyPDFLoader(str(file_path)).load()
 
-    loader = PyPDFLoader(str(file_path))
-
-    return loader.load()
-
-# ==========================================================
-# DOCX
-# ==========================================================
 
 def load_docx(file_path):
+    return Docx2txtLoader(str(file_path)).load()
 
-    loader = Docx2txtLoader(
-        str(file_path)
-    )
-
-    return loader.load()
-
-# ==========================================================
-# TXT
-# ==========================================================
 
 def load_txt(file_path):
+    try:
+        return TextLoader(str(file_path), encoding="utf-8").load()
+    except (UnicodeDecodeError, RuntimeError):
+        return TextLoader(str(file_path), encoding="latin-1").load()
 
-    loader = TextLoader(
-        str(file_path),
-        encoding="utf-8"
-    )
-
-    return loader.load()
-
-# ==========================================================
-# DOCUMENT LOADER
-# ==========================================================
 
 def load_document(file_path):
-
     suffix = file_path.suffix.lower()
-
     if suffix == ".pdf":
         return load_pdf(file_path)
-
     if suffix == ".docx":
         return load_docx(file_path)
-
     if suffix == ".txt":
         return load_txt(file_path)
-
     return []
 
-# ==========================================================
-# CHUNK DOCUMENTS
-# ==========================================================
-
+#CHUNK DOCUMENTS
 def chunk_documents(documents):
+    chunks = text_splitter.split_documents(documents)
+    cleaned = []
+    for chunk in chunks:
+        content = (chunk.page_content or "").strip()
+        if len(content) < MIN_CHUNK_CHARS:
+            continue
+        chunk.page_content = content
+        src = chunk.metadata.get("source", "")
+        if src:
+            chunk.metadata["source"] = Path(src).name
+        cleaned.append(chunk)
+    return cleaned
 
-    return text_splitter.split_documents(
-        documents
-    )
 
-# ==========================================================
-# PDF/DOCX/TXT INGESTION
-# ==========================================================
+def _deterministic_ids(chunks):
+    ids = []
+    seen = {}
+    for chunk in chunks:
+        source = chunk.metadata.get("source", "unknown")
+        idx = seen.get(source, 0)
+        seen[source] = idx + 1
+        digest = hashlib.sha1(
+            f"{source}:{idx}:{chunk.page_content}".encode("utf-8")
+        ).hexdigest()
+        ids.append(digest)
+    return ids
 
 def ingest_documents():
-
     vectorstore = get_vectorstore()
-
     documents = []
 
-    folders = [
-        PDF_DIR,
-        DOCX_DIR,
-        TXT_DIR
-    ]
-
-    for folder in folders:
-
+    for folder in [PDF_DIR, DOCX_DIR, TXT_DIR]:
         for file_path in Path(folder).glob("*"):
-
-            print(
-                f"[INFO] Loading: "
-                f"{file_path.name}"
-            )
-
-            docs = load_document(
-                file_path
-            )
-
-            documents.extend(
-                docs
-            )
+            if not file_path.is_file():
+                continue
+            print(f"[INFO] Loading: {file_path.name}")
+            try:
+                docs = load_document(file_path)
+            except Exception as e:
+                # One unreadable / corrupt file must not abort the whole run.
+                print(f"[ERROR] Skipping {file_path.name}: {e}")
+                continue
+            documents.extend(docs)
 
     if not documents:
-
-        print(
-            "[INFO] No documents found."
-        )
-
+        print("[INFO] No documents found.")
         return
 
-    chunks = chunk_documents(
-        documents
-    )
+    chunks = chunk_documents(documents)
+    if not chunks:
+        print("[INFO] No non-empty chunks to index.")
+        return
 
-    print(
-        f"[INFO] Generated "
-        f"{len(chunks)} chunks"
-    )
+    ids = _deterministic_ids(chunks)
+    print(f"[INFO] Generated {len(chunks)} chunks")
+    # Passing stable ids makes re-ingestion idempotent (upsert, no duplicates).
+    vectorstore.add_documents(chunks, ids=ids)
+    print("[INFO] Documents indexed.")
 
-    vectorstore.add_documents(
-        chunks
-    )
-
-    print(
-        "[INFO] Documents indexed."
-    )
-
-# ==========================================================
-# DATAFRAME SUMMARY
-# ==========================================================
 
 def dataframe_summary(df):
+    summary = {"rows": int(len(df)), "columns": list(df.columns)}
+    preview = df.head(5).where(pd.notna(df.head(5)), "").to_dict(orient="records")
+    return {"summary": summary, "preview": preview}
 
-    summary = {
-        "rows": len(df),
-        "columns": list(df.columns)
-    }
+def _detect_separator(file_path):
 
-    preview = (
-        df.head(5)
-        .fillna("")
-        .to_dict(
-            orient="records"
-        )
-    )
+    candidates = (";", ",", "\t", "|")
+    try:
+        with open(file_path, "r", encoding="utf-8", errors="replace") as f:
+            lines = []
+            for raw in f:
+                if raw.strip():
+                    lines.append(raw)
+                if len(lines) >= 20:
+                    break
+    except OSError:
+        return ","
+    if not lines:
+        return ","
 
-    return {
-        "summary": summary,
-        "preview": preview
-    }
+    best_sep, best_key = ",", (-1, -1.0)
+    for sep in candidates:
+        counts = [len(line.split(sep)) for line in lines]
+        header_fields = counts[0]
+        if header_fields < 2:
+            continue
+        consistency = sum(1 for c in counts if c == header_fields) / len(counts)
+        # Prefer a delimiter that is consistent first, then yields more columns.
+        key = (1 if consistency >= 0.6 else 0, header_fields * consistency)
+        if key > best_key:
+            best_key, best_sep = key, sep
+    return best_sep
 
-# ==========================================================
-# CSV
-# ==========================================================
 
 def load_csv(file_path):
+    sep = _detect_separator(file_path)
 
-    # Detect separator
-    try:
-        with open(file_path, 'r', encoding='utf-8') as f:
-            first_line = f.readline()
-    except UnicodeDecodeError:
-        with open(file_path, 'r', encoding='latin-1') as f:
-            first_line = f.readline()
-            
-    sep = ';' if ';' in first_line else ','
+    read_kwargs = dict(
+        engine="python",          # tolerant parser; handles odd quoting/lines
+        na_values=["NULL", "null", ""],
+        on_bad_lines="warn",      # warn (not silently skip) so data loss is visible
+    )
 
-    try:
-        df = pd.read_csv(
-            file_path,
-            encoding='utf-8',
-            sep=sep,
-            engine='c',
-            na_values=['NULL', 'null', ''],
-            low_memory=False,
-            on_bad_lines='skip'
-        )
-    except UnicodeDecodeError:
-        df = pd.read_csv(
-            file_path,
-            encoding='latin-1',
-            sep=sep,
-            engine='c',
-            na_values=['NULL', 'null', ''],
-            low_memory=False,
-            on_bad_lines='skip'
-        )
-
-    # Clean trailing commas from column names
-    df.columns = df.columns.str.rstrip(',')
-    
-    # Clean trailing commas from string columns
-    for col in df.select_dtypes(include='object').columns:
-        # Strip trailing commas
-        df[col] = df[col].apply(lambda x: x.rstrip(',') if isinstance(x, str) else x)
-        # Replace 'NULL' with NaN since it might have been bypassed by na_values due to the commas
-        df[col] = df[col].replace({'NULL': pd.NA, 'null': pd.NA, '': pd.NA})
-        # Attempt to convert to numeric
+    def _read(separator):
         try:
-            df[col] = pd.to_numeric(df[col])
-        except (ValueError, TypeError):
-            pass
+            return pd.read_csv(file_path, encoding="utf-8", sep=separator, **read_kwargs)
+        except UnicodeDecodeError:
+            return pd.read_csv(file_path, encoding="latin-1", sep=separator, **read_kwargs)
+
+    df = _read(sep)
+    if df.shape[1] == 1:
+        only_col = str(df.columns[0])
+        for alt in (";", "\t", "|", ","):
+            if alt != sep and alt in only_col:
+                alt_df = _read(alt)
+                if alt_df.shape[1] > df.shape[1]:
+                    df, sep = alt_df, alt
+                    break
+
+    print(f"[INFO] {Path(file_path).name}: delimiter={sep!r} -> {df.shape[1]} columns")
+
+    # Clean trailing commas from column names.
+    df.columns = df.columns.astype(str).str.rstrip(",").str.strip()
+
+    for col in df.select_dtypes(include="object").columns:
+        df[col] = df[col].apply(lambda x: x.rstrip(",").strip() if isinstance(x, str) else x)
+        df[col] = df[col].replace({"NULL": pd.NA, "null": pd.NA, "": pd.NA})
+        converted = pd.to_numeric(df[col], errors="coerce")
+        non_null = df[col].notna().sum()
+        if non_null == 0:
+            continue
+        if converted.notna().sum() == non_null:
+            df[col] = converted
+            continue
+        # European number format fallback: thousands '.' + decimal ',' e.g.
+        # "1.234,56" or "1234,56". Only applied when the WHOLE column parses
+        # cleanly this way, so US-style decimals are never corrupted.
+        euro = pd.to_numeric(
+            df[col].astype(str).str.replace(".", "", regex=False).str.replace(",", ".", regex=False),
+            errors="coerce",
+        )
+        if euro.notna().sum() == non_null:
+            df[col] = euro
 
     return df
 
+
 def load_excel(file_path):
+    return pd.read_excel(file_path)
 
-    return pd.read_excel(
-        file_path
-    )
-
-# ==========================================================
-# STRUCTURED INGESTION
-# ==========================================================
 
 def ingest_structured_files():
-
     vectorstore = get_vectorstore()
-
-    cache_dir = (
-        Path("cache")
-        / "dataframes"
-    )
-
-    cache_dir.mkdir(
-        parents=True,
-        exist_ok=True
-    )
+    cache_dir = Path(CACHE_DIR)
+    cache_dir.mkdir(parents=True, exist_ok=True)
 
     documents = []
+    ids = []
 
-    for file_path in Path(
-        STRUCTURED_DIR
-    ).glob("*"):
-
-        suffix = (
-            file_path
-            .suffix
-            .lower()
-        )
-
+    for file_path in Path(STRUCTURED_DIR).glob("*"):
+        if not file_path.is_file():
+            continue
+        suffix = file_path.suffix.lower()
         try:
-
             if suffix == ".csv":
-
-                df = load_csv(
-                    file_path
-                )
-
-            elif suffix in [
-                ".xlsx",
-                ".xls"
-            ]:
-
-                df = load_excel(
-                    file_path
-                )
-
+                df = load_csv(file_path)
+            elif suffix in [".xlsx", ".xls"]:
+                df = load_excel(file_path)
             else:
-
                 continue
 
-            cache_file = (
-                cache_dir
-                / f"{file_path.stem}.pkl"
-            )
+            cache_file = cache_dir / f"{file_path.stem}.pkl"
+            df.to_pickle(cache_file)
 
-            df.to_pickle(
-                cache_file
-            )
-
-            summary = dataframe_summary(
-                df
-            )
-
-            text = json.dumps(
-                summary,
-                indent=2,
-                ensure_ascii=False
-            )
+            summary = dataframe_summary(df)
+            text = json.dumps(summary, indent=2, ensure_ascii=False, default=str)
 
             documents.append(
                 Document(
                     page_content=text,
                     metadata={
-                        "source":
-                        file_path.name,
-                        "type":
-                        "structured",
-                        "cache":
-                        str(cache_file)
-                    }
+                        "source": file_path.name,
+                        "type": "structured",
+                        "cache": str(cache_file),
+                    },
                 )
             )
-
-            print(
-                f"[INFO] Loaded "
-                f"{file_path.name}"
+            # Stable id per structured source for idempotent re-ingestion.
+            ids.append(
+                hashlib.sha1(f"structured:{file_path.name}".encode("utf-8")).hexdigest()
             )
+            print(f"[INFO] Loaded {file_path.name}")
 
         except Exception as e:
-
-            print(
-                f"[ERROR] "
-                f"{file_path.name}: "
-                f"{e}"
-            )
+            print(f"[ERROR] {file_path.name}: {e}")
 
     if documents:
+        vectorstore.add_documents(documents, ids=ids)
+        print("[INFO] Structured datasets indexed.")
 
-        vectorstore.add_documents(
-            documents
-        )
-
-        print(
-            "[INFO] Structured "
-            "datasets indexed."
-        )
-
-# ==========================================================
-# INGEST ALL
-# ==========================================================
 
 def ingest_all():
-
-    print(
-        "\n[INFO] Starting ingestion\n"
-    )
-
+    print("\n[INFO] Starting ingestion\n")
     ingest_documents()
-
     ingest_structured_files()
+    print("\n[INFO] Ingestion complete.\n")
 
-    print(
-        "\n[INFO] Ingestion complete.\n"
-    )
-
-# ==========================================================
-# STATS
-# ==========================================================
 
 def get_collection_count():
-
     vectorstore = get_vectorstore()
-
-    return vectorstore._collection.count()
+    try:
+        return vectorstore._collection.count()
+    except Exception:
+        # Public-API fallback if the private attribute changes.
+        return len(vectorstore.get().get("ids", []))
 
 # ==========================================================
 # TEST
 # ==========================================================
 
 if __name__ == "__main__":
-
     ingest_all()
-
     print()
-
-    print(
-        "Total Chunks:"
-    )
-
-    print(
-        get_collection_count()
-    )
+    print("Total Chunks:")
+    print(get_collection_count())

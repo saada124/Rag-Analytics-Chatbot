@@ -1,6 +1,6 @@
+import threading
 import torch
 import numpy as np
-from collections import deque
 from typing import Sequence, List
 from sentence_transformers import CrossEncoder
 from langchain_openai import ChatOpenAI
@@ -13,7 +13,6 @@ from config import (
     MODEL_NAME,
     EMBEDDING_MODEL_NAME,
     RERANKER_MODEL_NAME,
-    MEMORY_SIZE
 )
 
 DEVICE = (
@@ -31,8 +30,10 @@ llm_client = ChatOpenAI(
     base_url="https://openrouter.ai/api/v1",
     api_key=OPENROUTER_API_KEY,
     model=MODEL_NAME,
-    temperature=0
+    temperature=0,
+    max_tokens=4000,
 )
+
 
 class E5Embeddings(HuggingFaceEmbeddings):
     def embed_documents(self, texts: List[str]) -> List[List[float]]:
@@ -43,22 +44,24 @@ class E5Embeddings(HuggingFaceEmbeddings):
         prefixed = f"query: {text}" if not text.startswith("query: ") else text
         return super().embed_query(prefixed)
 
+
 print(f"[INFO] Loading embeddings: {EMBEDDING_MODEL_NAME}")
 
 embedding_function = E5Embeddings(
     model_name=EMBEDDING_MODEL_NAME,
     model_kwargs={"device": DEVICE},
-    encode_kwargs={"normalize_embeddings": True}
+    encode_kwargs={"normalize_embeddings": True},
 )
 
 print("[INFO] Embeddings ready.")
+
 
 class CrossEncoderReranker(BaseDocumentCompressor):
     model_name: str
     device: str
     top_n: int = 5
     _model: object = None
-    
+
     class Config:
         arbitrary_types_allowed = True
 
@@ -71,76 +74,68 @@ class CrossEncoderReranker(BaseDocumentCompressor):
         self,
         documents: Sequence[Document],
         query: str,
-        callbacks: Callbacks = None
+        callbacks: Callbacks = None,
     ) -> Sequence[Document]:
         if not documents:
             return []
-        
+
         pairs = [(query, doc.page_content) for doc in documents]
         scores = self._model.predict(pairs, show_progress_bar=False)
         ranked = sorted(zip(documents, scores), key=lambda x: x[1], reverse=True)
-        return [doc for doc, _ in ranked[:self.top_n]]
+        return [doc for doc, _ in ranked[: self.top_n]]
+
 
 print(f"[INFO] Loading reranker: {RERANKER_MODEL_NAME}")
 reranker_compressor = CrossEncoderReranker(model_name=RERANKER_MODEL_NAME, device=DEVICE)
 print("[INFO] Reranker ready.")
 
-#conversation memory
-class ConversationMemory:
-    def __init__(self, size=10):
-        self.messages = deque(maxlen=size)
-
-    def add_user(self, text: str):
-        self.messages.append({"role": "user", "content": text})
-
-    def add_assistant(self, text: str):
-        self.messages.append({"role": "assistant", "content": text})
-
-    def get_history(self) -> str:
-        if not self.messages:
-            return ""
-        lines = []
-        for msg in self.messages:
-            role = msg["role"].upper()
-            content = msg["content"]
-            lines.append(f"{role}: {content}")
-        return "\n".join(lines)
-
-    def clear(self):
-        self.messages.clear()
-
-memory = ConversationMemory(MEMORY_SIZE)
-
-#semantic cache
+#SEMANTIC CACHE
 class SemanticCache:
-
-    def __init__(self, embedding_func, threshold=0.98):
-        self.embeddings = []      # List of numpy vectors
-        self.responses = []       # List of response dicts
+    def __init__(self, embedding_func, threshold: float = 0.98, max_size: int = 1000):
         self.embedding_func = embedding_func
         self.threshold = threshold
+        self.max_size = max_size
+        self._lock = threading.Lock()
+        self._responses = []          # parallel to rows of self._matrix
+        self._matrix = None           # np.ndarray of shape (n, dim), or None
 
     def get_cached_response(self, query: str):
-        if not self.embeddings:
-            return None
+        with self._lock:
+            if self._matrix is None or len(self._responses) == 0:
+                return None
+            matrix = self._matrix
+            responses = self._responses
 
-        query_emb = np.array(self.embedding_func.embed_query(query))
-        vectors = np.array(self.embeddings)
-
-        # Cosine similarity (embeddings are already normalized by E5)
-        similarities = np.dot(vectors, query_emb) / (
-            np.linalg.norm(vectors, axis=1) * np.linalg.norm(query_emb)
-        )
+        query_emb = np.asarray(self.embedding_func.embed_query(query), dtype=np.float32)
+        denom = np.linalg.norm(matrix, axis=1) * np.linalg.norm(query_emb)
+        denom[denom == 0] = 1e-12
+        similarities = (matrix @ query_emb) / denom
 
         best_idx = int(np.argmax(similarities))
         if similarities[best_idx] >= self.threshold:
             print(f"[CACHE HIT] Similarity: {similarities[best_idx]:.4f}")
-            return self.responses[best_idx]
+            return responses[best_idx]
         return None
 
     def add_to_cache(self, query: str, response: dict):
-        query_emb = self.embedding_func.embed_query(query)
-        self.embeddings.append(query_emb)
-        self.responses.append(response)
+        query_emb = np.asarray(self.embedding_func.embed_query(query), dtype=np.float32)
+        with self._lock:
+            self._responses.append(response)
+            if self._matrix is None:
+                self._matrix = query_emb.reshape(1, -1)
+            else:
+                self._matrix = np.vstack([self._matrix, query_emb])
+
+            # Evict oldest entries (FIFO) once we exceed the cap.
+            if len(self._responses) > self.max_size:
+                overflow = len(self._responses) - self.max_size
+                self._responses = self._responses[overflow:]
+                self._matrix = self._matrix[overflow:]
+
+    def clear(self):
+        with self._lock:
+            self._responses = []
+            self._matrix = None
+
 
 semantic_cache = SemanticCache(embedding_func=embedding_function)

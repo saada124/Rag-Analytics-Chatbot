@@ -1,0 +1,7 @@
+frontend:
+streamlit run app.py 
+
+backend:
+cd backend
+venv/Scripts/activate
+uvicorn app:app --reload

@@ -1,5 +1,7 @@
+import uuid
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+
+from fastapi import FastAPI, Request, Response
 from pydantic import BaseModel
 
 from config import (
@@ -18,11 +20,33 @@ from router import (
     route_query
 )
 
-from models import (
-    memory
+from session import (
+    session_manager
 )
 
 from analytics import load_dataframes
+
+SESSION_COOKIE = "session_id"
+SESSION_COOKIE_MAX_AGE = 60 * 60 * 24 * 30
+
+
+def _get_session_id(request: Request) -> tuple[str, bool]:
+    """Return (session_id, is_new). Reuses the cookie if present, else mints one."""
+    sid = request.cookies.get(SESSION_COOKIE)
+    if sid:
+        return sid, False
+    return uuid.uuid4().hex, True
+
+
+def _set_session_cookie(response: Response, session_id: str) -> None:
+    response.set_cookie(
+        key=SESSION_COOKIE,
+        value=session_id,
+        max_age=SESSION_COOKIE_MAX_AGE,
+        httponly=True,
+        samesite="lax",
+    )
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -60,13 +84,17 @@ def ingest():
     }
 
 @app.post("/chat")
-def chat(request: ChatRequest):
-    result = route_query(request.message)
+def chat(request: ChatRequest, http_request: Request, response: Response):
+    session_id, is_new = _get_session_id(http_request)
+    result = route_query(request.message, session_id=session_id)
+    _set_session_cookie(response, session_id)
     return result
 
 @app.post("/clear-memory")
-def clear_memory():
-    memory.clear()
+def clear_memory(http_request: Request):
+    session_id, _ = _get_session_id(http_request)
+    # Clear only this session's history, not everyone's.
+    session_manager.get_memory(session_id).clear()
     return {
         "status": "memory cleared"
     }
@@ -76,7 +104,7 @@ def root():
     return {
         "application": APP_NAME,
         "version": APP_VERSION,
-        "status": "running"
+        "status": "yekhdem mrigel"
     }
 
 
@@ -87,5 +115,13 @@ if __name__ == "__main__":
         "app:app",
         host=HOST,
         port=PORT,
-        reload=True
+        reload=True,
+        reload_includes=["*.py"],
+        reload_excludes=[
+            "chroma_db/*", "chroma_db/**",
+            "cache/*", "cache/**",
+            "data/*", "data/**",
+            "__pycache__/*", "**/__pycache__/**",
+            "*.pkl", "*.sqlite3", "*.sqlite3-journal", "*.bin", "*.log",
+        ],
     )
