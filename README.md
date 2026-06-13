@@ -2,7 +2,7 @@
 
 > A business intelligence chatbot combining Retrieval-Augmented Generation (RAG) with structured data analytics. Built with FastAPI, LangChain, and Streamlit.
 
-![Version](https://img.shields.io/badge/version-2.7.5-blue?style=flat-square)
+![Version](https://img.shields.io/badge/version-2.8.0-blue?style=flat-square)
 ![Python](https://img.shields.io/badge/python-3.8%2B-blue?style=flat-square&logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-async-009688?style=flat-square&logo=fastapi&logoColor=white)
 ![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)
@@ -21,6 +21,7 @@
 - [💬 Usage](#-usage)
 - [📡 API Reference](#-api-reference)
 - [📁 Project Structure](#-project-structure)
+- [🆕 What's New](#-whats-new-in-v280)
 - [🗺️ Roadmap](#️-roadmap)
 - [🤝 Contributing](#-contributing)
 - [📄 License](#-license)
@@ -37,45 +38,50 @@ Vilavi Chatbot enables natural language querying over both unstructured document
 
 ### 📄 Document Intelligence (RAG)
 
-| Capability | Details |
-|---|---|
-| Multi-format ingestion | PDF, DOCX, and TXT files |
-| Semantic search | ChromaDB vector database with multilingual E5 embeddings |
-| Intelligent reranking | BGE reranker for improved relevance scoring |
-| Contextual compression | Refines retrieved chunks for higher precision |
-| Query condensation | Resolves pronouns and references from conversation history |
-| Source citations | Every factual claim backed by an inline citation |
-| Language | All responses generated in French 🇫🇷 |
+| Capability             | Details                                                    |
+| ---------------------- | ---------------------------------------------------------- |
+| Multi-format ingestion | PDF, DOCX, and TXT files                                   |
+| Semantic search        | ChromaDB vector database with multilingual E5 embeddings   |
+| Intelligent reranking  | BGE reranker for improved relevance scoring                |
+| Contextual compression | Refines retrieved chunks for higher precision              |
+| Query condensation     | Resolves pronouns and references from conversation history |
+| Source citations       | Every factual claim backed by an inline citation           |
+| Language               | All responses generated in French 🇫🇷                     |
 
 ### 📊 Analytics Engine
 
-| Capability | Details |
-|---|---|
-| Structured data processing | Ingests CSV and Excel files |
-| LLM-generated Pandas code | Translates natural language into data queries |
-| Schema-aware | Understands column names, data types, and relationships |
-| Auto error correction | Retries failed queries with corrected code (up to 3 attempts) |
-| Data normalization | Automatic column cleaning, date parsing, type conversion |
-| Smart keyword search | Intelligently searches across multiple text columns |
+| Capability                   | Details                                                                                  |
+| ---------------------------- | ---------------------------------------------------------------------------------------- |
+| Structured data processing   | Ingests CSV and Excel files                                                              |
+| LLM-generated Pandas code    | Translates natural language into data queries                                            |
+| Schema-aware                 | Understands column names, data types, and relationships                                  |
+| Auto error correction        | Retries failed queries with corrected code (up to 3 attempts)                            |
+| Computes on the full dataset | Aggregations run over every row with Pandas — never from a sample preview                |
+| Sandboxed execution          | LLM-generated code is AST-validated (no imports, dunders, eval/exec/open) before running |
+| Robust CSV parsing           | Auto-detects delimiters (`;`, `,`, tab, `                                                |
+| Detailed answers             | Grounded, bullet-point summaries per requested metric, plus a structured results table   |
+| Data normalization           | Fast column cleaning, explicit-format date parsing, type conversion                      |
+| Smart keyword search         | Intelligently searches across multiple text columns                                      |
 
 ### 🧠 Intelligent Routing
 
-| Capability | Details |
-|---|---|
-| Query classification | Auto-routes to RAG, Analytics, or Hybrid mode |
-| Parallel hybrid execution | Analytics and RAG retrieval run simultaneously |
-| Semantic caching | Caches similar queries at 98% similarity threshold |
-| Conversation memory | Maintains context across follow-ups (configurable window) |
+| Capability                | Details                                                                                 |
+| ------------------------- | --------------------------------------------------------------------------------------- |
+| Query classification      | Auto-routes to RAG, Analytics, or Hybrid mode                                           |
+| Parallel hybrid execution | Analytics and RAG retrieval run simultaneously                                          |
+| Semantic caching          | Caches similar queries at 98% similarity threshold                                      |
+| Per-session memory        | Isolated conversation history per browser session (cookie-based)                        |
+| Grounded responses        | Figures come only from computed/retrieved data — no fabricated or "hypothetical" values |
 
 ### 🎨 Frontend
 
-| Capability | Details |
-|---|---|
-| Modern UI | Glassmorphism design with gradient backgrounds |
-| Real-time chat | Message history with expandable source citations |
-| Data tables | Interactive display for analytics results |
-| Health indicator | Live backend connection status |
-| Memory reset | Clear conversation history with one click |
+| Capability       | Details                                          |
+| ---------------- | ------------------------------------------------ |
+| Modern UI        | Glassmorphism design with gradient backgrounds   |
+| Real-time chat   | Message history with expandable source citations |
+| Data tables      | Interactive display for analytics results        |
+| Health indicator | Live backend connection status                   |
+| Memory reset     | Clear conversation history with one click        |
 
 ---
 
@@ -229,20 +235,21 @@ streamlit run app.py
 
 Key parameters in `backend/config.py`. All can be overridden via `.env`.
 
-| Parameter | Default | Description |
-|---|---|---|
-| `CHUNK_SIZE` | `1000` | Token size for document chunks |
-| `CHUNK_OVERLAP` | `200` | Overlap between adjacent chunks |
-| `VECTOR_SEARCH_TOP_K` | `20` | Documents retrieved before reranking |
-| `RERANKER_TOP_K` | `5` | Documents retained after reranking |
-| `MEMORY_SIZE` | `10` | Conversation turns held in memory |
-| `MULTI_QUERY_COUNT` | `4` | Number of query expansions generated |
+| Parameter             | Default | Description                                                |
+| --------------------- | ------- | ---------------------------------------------------------- |
+| `CHUNK_SIZE`          | `1000`  | Token size for document chunks                             |
+| `CHUNK_OVERLAP`       | `200`   | Overlap between adjacent chunks                            |
+| `VECTOR_SEARCH_TOP_K` | `20`    | Documents retrieved before reranking                       |
+| `RERANKER_TOP_K`      | `5`     | Documents retained after reranking                         |
+| `MEMORY_SIZE`         | `5`     | Conversation turns (user+assistant pairs) held per session |
+| `MAX_CONTEXT_CHARS`   | `12000` | Max characters of retrieved context sent to the LLM        |
+| `MIN_CHUNK_CHARS`     | `20`    | Minimum characters for a chunk to be indexed               |
 
 ### How chunk parameters affect quality
 
 ```
  CHUNK_SIZE  ──────────────────────────────────────────────►
- 
+
  Small (500)   │ Fast · cheap · may lose context
                │
  Medium (1000) │ ✅ Recommended default — balanced precision
@@ -250,7 +257,7 @@ Key parameters in `backend/config.py`. All can be overridden via `.env`.
  Large (2000)  │ Rich context · slower · higher cost
 
  CHUNK_OVERLAP ──────────────────────────────────────────────►
- 
+
  Low (50)    │ Faster ingestion · may miss boundary content
  High (300)  │ ✅ Better continuity · larger index size
 ```
@@ -288,12 +295,12 @@ Key parameters in `backend/config.py`. All can be overridden via `.env`.
 
 ### Endpoints at a glance
 
-| Method | Endpoint | Description |
-|---|---|---|
-| `GET` | `/health` | System status and document count |
-| `POST` | `/chat` | Send a message and receive a response |
-| `POST` | `/ingest` | Trigger document re-indexing |
-| `POST` | `/clear-memory` | Reset conversation history |
+| Method | Endpoint        | Description                           |
+| ------ | --------------- | ------------------------------------- |
+| `GET`  | `/health`       | System status and document count      |
+| `POST` | `/chat`         | Send a message and receive a response |
+| `POST` | `/ingest`       | Trigger document re-indexing          |
+| `POST` | `/clear-memory` | Reset conversation history            |
 
 ### `GET /health`
 
@@ -333,7 +340,8 @@ chatbot2/
 │   ├── rag.py              # RAG pipeline implementation
 │   ├── analytics.py        # Analytics engine
 │   ├── router.py           # Query routing logic
-│   ├── ingest.py           # Document ingestion script
+│   ├── session.py          # Per-session conversation memory (cookie-based)
+│   ├── ingest.py           # Document & structured-data ingestion script
 │   ├── models.py           # ML model loading and utilities
 │   ├── requirements.txt
 │   ├── 📂 data/
@@ -351,11 +359,37 @@ chatbot2/
 
 ---
 
+## 🆕 What's New in v2.8.1
+
+### Reliability & correctness
+
+- **Accurate analytics** — analytical questions now compute over the **entire dataset** with Pandas. The old behavior embedded a 5-row preview into the vector store, which let the model answer from a tiny sample and invent totals; structured summaries are now **schema-only**.
+- **No fabricated figures** — RAG, Hybrid, and Analytics prompts are grounded: numbers come only from retrieved/computed data, never "hypothetical" estimates.
+- **Detailed, grounded answers** — multi-part analytics questions return a bold title + bullet points per requested metric, alongside a structured results table.
+- **Robust CSV ingestion** — delimiter auto-detection (`;`, `,`, tab, `|`) and European decimal-comma handling fix mis-parsed single-column files.
+
+### Security & stability
+
+- **Sandboxed code execution** — LLM-generated Pandas code is AST-validated (no imports, dunder access, or `eval`/`exec`/`open`) and run with a minimal builtins set.
+- **Cookie-based sessions** — conversation memory is isolated per browser session via a `session_id` cookie (`session.py`).
+- **No more reload loops / double model loading** — dev autoreload excludes data, cache, and DB artifacts so heavy models load once.
+
+### Quality of life
+
+- **Structured logging** — all modules now use Python's `logging` (levelled, timestamped) instead of `print()`.
+- **Faster startup** — date columns parse with a detected explicit format instead of slow per-element inference (no more `dateutil` warnings).
+
+> ⚠️ After upgrading, run `POST /ingest` (or `python ingest.py`) to rebuild structured summaries as schema-only — existing previews persist in Chroma until re-indexed.
+
+---
+
 ## 🗺️ Roadmap
 
 ### 🟢 Short-term
 
-- [ ] User authentication and session management
+- [x] Per-session conversation memory (cookie-based) ✅ *v2.8.0*
+- [ ] User authentication (login / API keys)
+- [ ] Execution timeout & row caps for the analytics sandbox
 - [ ] Real-time document upload through the UI
 - [ ] Charts and graphs for analytics results
 - [ ] API rate limiting for production
@@ -405,6 +439,6 @@ For questions or bug reports, please [open an issue](../../issues) in the reposi
 
 <div align="center">
 
-Made with ❤️ · **Version 2.7.5** · Last updated June 2026
+Made with ❤️ · **Version 2.8.1** · Last updated 13 June 2026
 
 </div>
