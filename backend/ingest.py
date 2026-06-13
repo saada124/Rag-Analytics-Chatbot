@@ -1,3 +1,7 @@
+import logging
+
+logger = logging.getLogger(__name__)
+
 import json
 import hashlib
 from pathlib import Path
@@ -108,35 +112,45 @@ def ingest_documents():
         for file_path in Path(folder).glob("*"):
             if not file_path.is_file():
                 continue
-            print(f"[INFO] Loading: {file_path.name}")
+            logger.info(f"[INFO] Loading: {file_path.name}")
             try:
                 docs = load_document(file_path)
             except Exception as e:
                 # One unreadable / corrupt file must not abort the whole run.
-                print(f"[ERROR] Skipping {file_path.name}: {e}")
+                logger.error(f"[ERROR] Skipping {file_path.name}: {e}")
                 continue
             documents.extend(docs)
 
     if not documents:
-        print("[INFO] No documents found.")
+        logger.info("[INFO] No documents found.")
         return
 
     chunks = chunk_documents(documents)
     if not chunks:
-        print("[INFO] No non-empty chunks to index.")
+        logger.info("[INFO] No non-empty chunks to index.")
         return
 
     ids = _deterministic_ids(chunks)
-    print(f"[INFO] Generated {len(chunks)} chunks")
+    logger.info(f"[INFO] Generated {len(chunks)} chunks")
     # Passing stable ids makes re-ingestion idempotent (upsert, no duplicates).
     vectorstore.add_documents(chunks, ids=ids)
-    print("[INFO] Documents indexed.")
+    logger.info("[INFO] Documents indexed.")
 
 
 def dataframe_summary(df):
-    summary = {"rows": int(len(df)), "columns": list(df.columns)}
-    preview = df.head(5).where(pd.notna(df.head(5)), "").to_dict(orient="records")
-    return {"summary": summary, "preview": preview}
+    """Schema-only summary of a structured dataset.
+
+    We deliberately do NOT embed any row values here. A previous version
+    embedded a 5-row ``df.head(5)`` preview, which let the RAG/HYBRID path
+    answer analytical questions from that tiny sample instead of computing
+    over the full dataset - producing confidently wrong numbers. The vector
+    store should only learn that this dataset EXISTS and which columns it
+    has; real figures must come from the analytics (pandas) path.
+    """
+    columns = [
+        {"name": str(col), "dtype": str(df[col].dtype)} for col in df.columns
+    ]
+    return {"summary": {"rows": int(len(df)), "columns": columns}}
 
 def _detect_separator(file_path):
 
@@ -193,7 +207,7 @@ def load_csv(file_path):
                     df, sep = alt_df, alt
                     break
 
-    print(f"[INFO] {Path(file_path).name}: delimiter={sep!r} -> {df.shape[1]} columns")
+    logger.info(f"[INFO] {Path(file_path).name}: delimiter={sep!r} -> {df.shape[1]} columns")
 
     # Clean trailing commas from column names.
     df.columns = df.columns.astype(str).str.rstrip(",").str.strip()
@@ -265,21 +279,21 @@ def ingest_structured_files():
             ids.append(
                 hashlib.sha1(f"structured:{file_path.name}".encode("utf-8")).hexdigest()
             )
-            print(f"[INFO] Loaded {file_path.name}")
+            logger.info(f"[INFO] Loaded {file_path.name}")
 
         except Exception as e:
-            print(f"[ERROR] {file_path.name}: {e}")
+            logger.error(f"[ERROR] {file_path.name}: {e}")
 
     if documents:
         vectorstore.add_documents(documents, ids=ids)
-        print("[INFO] Structured datasets indexed.")
+        logger.info("[INFO] Structured datasets indexed.")
 
 
 def ingest_all():
-    print("\n[INFO] Starting ingestion\n")
+    logger.info("\n[INFO] Starting ingestion\n")
     ingest_documents()
     ingest_structured_files()
-    print("\n[INFO] Ingestion complete.\n")
+    logger.info("\n[INFO] Ingestion complete.\n")
 
 
 def get_collection_count():
@@ -295,7 +309,8 @@ def get_collection_count():
 # ==========================================================
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
     ingest_all()
-    print()
-    print("Total Chunks:")
-    print(get_collection_count())
+    logger.info("")
+    logger.info("Total Chunks:")
+    logger.info(get_collection_count())

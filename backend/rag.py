@@ -1,3 +1,7 @@
+import logging
+
+logger = logging.getLogger(__name__)
+
 from typing import List
 
 from langchain_core.prompts import ChatPromptTemplate
@@ -93,7 +97,7 @@ def retrieve_context(query: str, history: str = ""):
     else:
         condensed_query = query.strip()
 
-    print(f"[RAG] Condensed query: {condensed_query}")
+    logger.info(f"[RAG] Condensed query: {condensed_query}")
 
     reranked_docs = retrieve_documents(condensed_query)
     context = _build_context(reranked_docs)

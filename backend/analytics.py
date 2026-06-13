@@ -1,3 +1,7 @@
+import logging
+
+logger = logging.getLogger(__name__)
+
 import ast
 import json
 import time
@@ -100,14 +104,14 @@ def load_dataframes():
 
             DATAFRAMES[file_path.stem] = df
             elapsed = time.perf_counter() - file_start
-            print(
+            logger.info(
                 f"[INFO] Loaded & Normalized {file_path.stem} "
                 f"({len(df):,} rows x {len(df.columns)} cols) in {elapsed:.2f}s"
             )
         except Exception as e:
-            print(f"[ERROR] {file_path.name}: {e}")
+            logger.error(f"[ERROR] {file_path.name}: {e}")
 
-    print(f"[STARTUP] All dataframes ready in {time.perf_counter() - total_start:.2f}s")
+    logger.info(f"[STARTUP] All dataframes ready in {time.perf_counter() - total_start:.2f}s")
     return DATAFRAMES
 
 
@@ -367,7 +371,7 @@ def compose_analytics_answer(query: str, explanation: str, data: Any) -> str:
             "data": data_json,
         }).strip()
     except Exception as e:
-        print(f"[ANALYTICS] Answer composer failed, using concise explanation: {e}")
+        logger.warning(f"[ANALYTICS] Answer composer failed, using concise explanation: {e}")
         return explanation
 
 
@@ -387,13 +391,13 @@ def analyze_query(query: str) -> dict:
             if attempt == 0:
                 pandas_output = generate_pandas_query(query)
             else:
-                print(f"[ANALYTICS] Attempt {attempt + 1}: Correcting previous failure...")
+                logger.info(f"[ANALYTICS] Attempt {attempt + 1}: Correcting previous failure...")
                 pandas_output = generate_pandas_query_correction(query, code, error_msg)
 
             code = pandas_output.code
             explanation = pandas_output.explanation
-            print(f"[ANALYTICS] Explanation: {explanation}")
-            print(f"[ANALYTICS] Code generated:\n{code}")
+            logger.info(f"[ANALYTICS] Explanation: {explanation}")
+            logger.info(f"[ANALYTICS] Code generated:\n{code}")
 
             result = execute_pandas_code(code, DATAFRAMES)
 
@@ -406,10 +410,11 @@ def analyze_query(query: str) -> dict:
 
         except Exception as e:
             error_msg = f"{type(e).__name__}: {str(e)}"
-            print(f"[ANALYTICS ERROR] Attempt {attempt + 1} failed: {error_msg}")
+            logger.error(f"[ANALYTICS ERROR] Attempt {attempt + 1} failed: {error_msg}")
             if attempt == max_retries - 1:
-                import traceback
-                traceback.print_exc()
+                logger.exception(
+                    "Analytics calculation failed after %s attempts", max_retries
+                )
                 return {
                     "answer": f"Failed to execute calculation after {max_retries} attempts: {str(e)}",
                     "data": [],
@@ -417,11 +422,12 @@ def analyze_query(query: str) -> dict:
 
 
 if __name__ == "__main__":
-    print("Testing Analytics Code Generator...")
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
+    logger.info("Testing Analytics Code Generator...")
     load_dataframes()
     if DATAFRAMES:
         q = "show me the user's country with the signup date before 2022 and show the score"
         res = analyze_query(q)
-        print(json.dumps(res, indent=2, default=str))
+        logger.info(json.dumps(res, indent=2, default=str))
     else:
-        print("No cache dataframes found. Make sure to run ingestion first.")
+        logger.info("No cache dataframes found. Make sure to run ingestion first.")

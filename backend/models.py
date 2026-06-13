@@ -1,3 +1,7 @@
+import logging
+
+logger = logging.getLogger(__name__)
+
 import threading
 import torch
 import numpy as np
@@ -21,7 +25,7 @@ DEVICE = (
     else "cpu"
 )
 
-print(f"[INFO] Running on {DEVICE}")
+logger.info(f"[INFO] Running on {DEVICE}")
 
 if not OPENROUTER_API_KEY:
     raise ValueError("OPENROUTER_API_KEY not found.")
@@ -45,7 +49,7 @@ class E5Embeddings(HuggingFaceEmbeddings):
         return super().embed_query(prefixed)
 
 
-print(f"[INFO] Loading embeddings: {EMBEDDING_MODEL_NAME}")
+logger.info(f"[INFO] Loading embeddings: {EMBEDDING_MODEL_NAME}")
 
 embedding_function = E5Embeddings(
     model_name=EMBEDDING_MODEL_NAME,
@@ -53,7 +57,7 @@ embedding_function = E5Embeddings(
     encode_kwargs={"normalize_embeddings": True},
 )
 
-print("[INFO] Embeddings ready.")
+logger.info("[INFO] Embeddings ready.")
 
 
 class CrossEncoderReranker(BaseDocumentCompressor):
@@ -85,9 +89,9 @@ class CrossEncoderReranker(BaseDocumentCompressor):
         return [doc for doc, _ in ranked[: self.top_n]]
 
 
-print(f"[INFO] Loading reranker: {RERANKER_MODEL_NAME}")
+logger.info(f"[INFO] Loading reranker: {RERANKER_MODEL_NAME}")
 reranker_compressor = CrossEncoderReranker(model_name=RERANKER_MODEL_NAME, device=DEVICE)
-print("[INFO] Reranker ready.")
+logger.info("[INFO] Reranker ready.")
 
 #SEMANTIC CACHE
 class SemanticCache:
@@ -113,7 +117,7 @@ class SemanticCache:
 
         best_idx = int(np.argmax(similarities))
         if similarities[best_idx] >= self.threshold:
-            print(f"[CACHE HIT] Similarity: {similarities[best_idx]:.4f}")
+            logger.info(f"[CACHE HIT] Similarity: {similarities[best_idx]:.4f}")
             return responses[best_idx]
         return None
 

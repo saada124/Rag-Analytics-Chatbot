@@ -1,3 +1,7 @@
+import logging
+
+logger = logging.getLogger(__name__)
+
 from typing import Literal
 from concurrent.futures import ThreadPoolExecutor
 
@@ -44,7 +48,7 @@ def classify_query(query: str) -> str:
         result = router_chain.invoke({"query": query})
         return result.route
     except Exception as e:
-        print(f"[ROUTER ERROR] {e}")
+        logger.error(f"[ROUTER ERROR] {e}")
         return "RAG"
 
 
@@ -124,7 +128,7 @@ def route_query(query: str, session_id: str = None) -> dict:
     """
     memory = session_manager.get_memory(session_id)
     query_type = classify_query(query)
-    print(f"[ROUTER] {query_type}")
+    logger.info(f"[ROUTER] {query_type}")
 
     if query_type == "ANALYTICS":
         # Do NOT cache analytics: results are data-dependent and time-sensitive,

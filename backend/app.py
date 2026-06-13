@@ -1,3 +1,11 @@
+import logging
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+)
+logger = logging.getLogger(__name__)
+
 import uuid
 from contextlib import asynccontextmanager
 
@@ -50,10 +58,10 @@ def _set_session_cookie(response: Response, session_id: str) -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    print("[STARTUP] Pre-loading and normalizing DataFrames...")
+    logger.info("[STARTUP] Pre-loading and normalizing DataFrames...")
     load_dataframes()
     yield
-    print("[SHUTDOWN] Stopping application...")
+    logger.info("[SHUTDOWN] Stopping application...")
 
 app = FastAPI(
     title=APP_NAME,
