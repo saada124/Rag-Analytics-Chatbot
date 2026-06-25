@@ -92,7 +92,7 @@ def ingest():
     }
 
 @app.post("/chat")
-def chat(request: ChatRequest, http_request: Request, response: Response):
+async def chat(request: ChatRequest, http_request: Request, response: Response):
     session_id, is_new = _get_session_id(http_request)
     result = route_query(request.message, session_id=session_id)
     _set_session_cookie(response, session_id)
