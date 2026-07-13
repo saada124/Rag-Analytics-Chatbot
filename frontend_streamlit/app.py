@@ -308,7 +308,7 @@ with st.sidebar:
     st.markdown("---")
     st.markdown("""
     <div style='text-align: center; padding: 0.3rem 0; color: #94a3b8; font-size: 0.65rem;'>
-        <div style='margin-bottom: 0.1rem;'>Version 2.7.5</div>
+        <div style='margin-bottom: 0.1rem;'>Version 2.8.1</div>
         <div>© 2026 VilaBot</div>
     </div>
     """, unsafe_allow_html=True)

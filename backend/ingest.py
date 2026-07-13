@@ -132,7 +132,9 @@ def ingest_documents():
 
     ids = _deterministic_ids(chunks)
     logger.info(f"[INFO] Generated {len(chunks)} chunks")
-    # Passing stable ids makes re-ingestion idempotent (upsert, no duplicates).
+    # Delete existing entries with the same stable ids first so re-ingestion
+    # does not raise DuplicateIDError.  Chroma's delete is idempotent.
+    vectorstore.delete(ids=ids)
     vectorstore.add_documents(chunks, ids=ids)
     logger.info("[INFO] Documents indexed.")
 
@@ -186,7 +188,6 @@ def load_csv(file_path):
     sep = _detect_separator(file_path)
 
     read_kwargs = dict(
-        engine="python",          # tolerant parser; handles odd quoting/lines
         na_values=["NULL", "null", ""],
         on_bad_lines="warn",      # warn (not silently skip) so data loss is visible
     )
@@ -285,6 +286,7 @@ def ingest_structured_files():
             logger.error(f"[ERROR] {file_path.name}: {e}")
 
     if documents:
+        vectorstore.delete(ids=ids)
         vectorstore.add_documents(documents, ids=ids)
         logger.info("[INFO] Structured datasets indexed.")
 

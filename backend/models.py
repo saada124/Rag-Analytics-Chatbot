@@ -35,7 +35,7 @@ llm_client = ChatOpenAI(
     api_key=OPENROUTER_API_KEY,
     model=MODEL_NAME,
     temperature=0,
-    max_tokens=200,
+    max_tokens=2048,
 )
 
 
