@@ -1,4 +1,4 @@
-# 🤖 Vilavi Chatbot
+# 🤖 Vilabot
 
 > A business intelligence chatbot combining Retrieval-Augmented Generation (RAG) with structured data analytics. Built with FastAPI, LangChain, and Streamlit.
 
